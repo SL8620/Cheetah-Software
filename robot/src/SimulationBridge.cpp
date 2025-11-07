@@ -69,11 +69,24 @@ void SimulationBridge::run() {
       // tell the simulator we are done
       _sharedMemory().robotIsDone();
     }
-  } catch (std::exception& e) {
-    strncpy(_sharedMemory().robotToSim.errorMessage, e.what(), sizeof(_sharedMemory().robotToSim.errorMessage));
-    _sharedMemory().robotToSim.errorMessage[sizeof(_sharedMemory().robotToSim.errorMessage) - 1] = '\0';
-    throw e;
-  }
+  } 
+  catch (std::exception& e) 
+  {
+    // 将异常信息转换为 std::string
+    std::string errorMsg = e.what();
+
+    // 确保不超过缓冲区大小（留一个字符的空间用于 '\0'）
+    size_t copySize = std::min(errorMsg.size(), sizeof(_sharedMemory().robotToSim.errorMessage) - 1);
+
+    // 使用 std::copy 安全复制数据
+    std::copy(errorMsg.begin(), errorMsg.begin() + copySize, _sharedMemory().robotToSim.errorMessage);
+
+    // 手动设置字符串终止符
+    _sharedMemory().robotToSim.errorMessage[copySize] = '\0';
+
+    // 重新抛出异常
+    throw;
+  } 
 
 }
 
