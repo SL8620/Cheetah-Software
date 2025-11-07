@@ -29,7 +29,7 @@ void MIT_Controller::runController()
     // 查找期望状态轨迹
     _desiredStateCommand->convertToStateCommands();
 
-    // 运行控制FSM代码
+    // 运行控制FSM
     _controlFSM->runFSM();
 }
 

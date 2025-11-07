@@ -9,16 +9,17 @@
 #include <rt/rt_rc_interface.h>
 
 /**
- * Constructor for the Control FSM. Passes in all of the necessary
- * data and stores it in a struct. Initializes the FSM with a starting
- * state and operating mode.
+ * /**
+ * 控制FSM的构造函数
+ * 传递所有必要的数据并存储在结构中，用启动状态和操作模式初始化FSM
+ * 传入参数从RobotRunner的RobotController* _robot_ctrl赋值来
  *
- * @param _quadruped the quadruped information
- * @param _stateEstimator contains the estimated states
- * @param _legController interface to the leg controllers
- * @param _gaitScheduler controls scheduled foot contact modes
- * @param _desiredStateCommand gets the desired COM state trajectories
- * @param controlParameters passes in the control parameters from the GUI
+ * @param _quadruped			四足信息
+ * @param _stateEstimator 		包含估计状态
+ * @param _legController 		与腿部的控制接口
+ * @param _gaitScheduler 		控制预定的足端接触模式
+ * @param _desiredStateCommand 	获取所需的COM状态轨迹
+ * @param controlParameters 	从GUI中传入控制参数
  */
 template <typename T>
 ControlFSM<T>::ControlFSM(Quadruped<T>* _quadruped,
@@ -30,52 +31,52 @@ ControlFSM<T>::ControlFSM(Quadruped<T>* _quadruped,
                           VisualizationData* visualizationData,
                           MIT_UserParameters* userParameters)
 {
-  // Add the pointers to the ControlFSMData struct
-  data._quadruped = _quadruped;
-  data._stateEstimator = _stateEstimator;
-  data._legController = _legController;
-  data._gaitScheduler = _gaitScheduler;
-  data._desiredStateCommand = _desiredStateCommand;
-  data.controlParameters = controlParameters;
-  data.visualizationData = visualizationData;
-  data.userParameters = userParameters;
+	// 将指针添加到ControlFSMData结构体
+	data._quadruped = _quadruped;
+	data._stateEstimator = _stateEstimator;
+	data._legController = _legController;
+	data._gaitScheduler = _gaitScheduler;
+	data._desiredStateCommand = _desiredStateCommand;
+	data.controlParameters = controlParameters;
+	data.visualizationData = visualizationData;
+	data.userParameters = userParameters;
 
-  // Initialize and add all of the FSM States to the state list
-  statesList.invalid = nullptr;
-  statesList.passive = new FSM_State_Passive<T>(&data);
-  statesList.jointPD = new FSM_State_JointPD<T>(&data);
-  statesList.impedanceControl = new FSM_State_ImpedanceControl<T>(&data);
-  statesList.standUp = new FSM_State_StandUp<T>(&data);
-  statesList.balanceStand = new FSM_State_BalanceStand<T>(&data);
-  statesList.locomotion = new FSM_State_Locomotion<T>(&data);
-  statesList.recoveryStand = new FSM_State_RecoveryStand<T>(&data);
-  statesList.vision = new FSM_State_Vision<T>(&data);
-  statesList.backflip = new FSM_State_BackFlip<T>(&data);
-  statesList.frontJump = new FSM_State_FrontJump<T>(&data);
+	// 初始化并将所有FSM状态加入到状态列表中
+	statesList.invalid = nullptr;
+	statesList.passive = new FSM_State_Passive<T>(&data);
+	statesList.jointPD = new FSM_State_JointPD<T>(&data);
+	statesList.impedanceControl = new FSM_State_ImpedanceControl<T>(&data);
+	statesList.standUp = new FSM_State_StandUp<T>(&data);
+	statesList.balanceStand = new FSM_State_BalanceStand<T>(&data);
+	statesList.locomotion = new FSM_State_Locomotion<T>(&data);
+	statesList.recoveryStand = new FSM_State_RecoveryStand<T>(&data);
+	statesList.vision = new FSM_State_Vision<T>(&data);
+	statesList.backflip = new FSM_State_BackFlip<T>(&data);
+	statesList.frontJump = new FSM_State_FrontJump<T>(&data);
 
-  safetyChecker = new SafetyChecker<T>(&data);
+	safetyChecker = new SafetyChecker<T>(&data);
 
-  // Initialize the FSM with the Passive FSM State
-  initialize();
+	// 使用被动FSM状态初始化FSM
+	initialize();
 }
 
 /**
- * Initialize the Control FSM with the default settings. SHould be set to
- * Passive state and Normal operation mode.
+ * 使用默认设置初始化控件FSM，设置为被动和正常工作模式
  */
 template <typename T>
-void ControlFSM<T>::initialize() {
-  // Initialize a new FSM State with the control data
-  currentState = statesList.passive;
+void ControlFSM<T>::initialize() 
+{
+	// 用控制数据初始化一个新的FSM状态
+	currentState = statesList.passive;
 
-  // Enter the new current state cleanly
-  currentState->onEnter();
+	// 输入新的当前状态
+	currentState->onEnter();
 
-  // Initialize to not be in transition
-  nextState = currentState;
+	// 初始化状态仍保持当前状态
+	nextState = currentState;
 
-  // Initialize FSM mode to normal operation
-  operatingMode = FSM_OperatingMode::NORMAL;
+	// FSM模式初始化为正常操作
+	operatingMode = FSM_OperatingMode::NORMAL;
 }
 
 /**
@@ -84,103 +85,101 @@ void ControlFSM<T>::initialize() {
  * the regular state behavior if all is normal.
  */
 template <typename T>
-void ControlFSM<T>::runFSM() {
-  // Publish state estimator data to other computer
-  //for(size_t i(0); i<3; ++i){
-    //_state_estimator.p[i] = data._stateEstimator->getResult().position[i];
-    //_state_estimator.quat[i] = data._stateEstimator->getResult().orientation[i];
-  //}
-    //_state_estimator.quat[3] = data._stateEstimator->getResult().orientation[3];
-  //state_estimator_lcm.publish("state_estimator_ctrl_pc", &_state_estimator);
+void ControlFSM<T>::runFSM() 
+{
 
-  // Check the robot state for safe operation
-  operatingMode = safetyPreCheck();
+	// Check the robot state for safe operation
+	operatingMode = safetyPreCheck();
 
-  if(data.controlParameters->use_rc){
-    int rc_mode = data._desiredStateCommand->rcCommand->mode;
-    if(rc_mode == RC_mode::RECOVERY_STAND){
-      data.controlParameters->control_mode = K_RECOVERY_STAND;
+	if(data.controlParameters->use_rc)
+	{
+		int rc_mode = data._desiredStateCommand->rcCommand->mode;
+		if(rc_mode == RC_mode::RECOVERY_STAND)
+		{
+			data.controlParameters->control_mode = K_RECOVERY_STAND;
+		} 
+		else if(rc_mode == RC_mode::LOCOMOTION)
+		{
+			data.controlParameters->control_mode = K_LOCOMOTION;
+		} 
+		else if(rc_mode == RC_mode::QP_STAND)
+		{
+			data.controlParameters->control_mode = K_BALANCE_STAND;
+		} 
+		else if(rc_mode == RC_mode::VISION)
+		{
+			data.controlParameters->control_mode = K_VISION;
+		} 
+		else if(rc_mode == RC_mode::BACKFLIP || rc_mode == RC_mode::BACKFLIP_PRE)
+		{
+			data.controlParameters->control_mode = K_BACKFLIP;
+		}
+	}
 
-    } else if(rc_mode == RC_mode::LOCOMOTION){
-      data.controlParameters->control_mode = K_LOCOMOTION;
+	// Run the robot control code if operating mode is not unsafe
+	if (operatingMode != FSM_OperatingMode::ESTOP) {
+		// Run normal controls if no transition is detected
+		if (operatingMode == FSM_OperatingMode::NORMAL) {
+		// Check the current state for any transition
+		nextStateName = currentState->checkTransition();
 
-    } else if(rc_mode == RC_mode::QP_STAND){
-      data.controlParameters->control_mode = K_BALANCE_STAND;
+		// Detect a commanded transition
+		if (nextStateName != currentState->stateName) {
+			// Set the FSM operating mode to transitioning
+			operatingMode = FSM_OperatingMode::TRANSITIONING;
 
-    } else if(rc_mode == RC_mode::VISION){
-      data.controlParameters->control_mode = K_VISION;
+			// Get the next FSM State by name
+			nextState = getNextState(nextStateName);
 
-    } else if(rc_mode == RC_mode::BACKFLIP || rc_mode == RC_mode::BACKFLIP_PRE){
-      data.controlParameters->control_mode = K_BACKFLIP;
-   }
-      //data.controlParameters->control_mode = K_FRONTJUMP;
-    //std::cout<< "control mode: "<<data.controlParameters->control_mode<<std::endl;
-  }
+			// Print transition initialized info
+			//printInfo(1);
 
-  // Run the robot control code if operating mode is not unsafe
-  if (operatingMode != FSM_OperatingMode::ESTOP) {
-    // Run normal controls if no transition is detected
-    if (operatingMode == FSM_OperatingMode::NORMAL) {
-      // Check the current state for any transition
-      nextStateName = currentState->checkTransition();
+		} else {
+			// Run the iteration for the current state normally
+			currentState->run();
+		}
+		}
 
-      // Detect a commanded transition
-      if (nextStateName != currentState->stateName) {
-        // Set the FSM operating mode to transitioning
-        operatingMode = FSM_OperatingMode::TRANSITIONING;
+		// Run the transition code while transition is occuring
+		if (operatingMode == FSM_OperatingMode::TRANSITIONING) {
+		transitionData = currentState->transition();
 
-        // Get the next FSM State by name
-        nextState = getNextState(nextStateName);
+		// Check the robot state for safe operation
+		safetyPostCheck();
 
-        // Print transition initialized info
-        //printInfo(1);
+		// Run the state transition
+		if (transitionData.done) {
+			// Exit the current state cleanly
+			currentState->onExit();
 
-      } else {
-        // Run the iteration for the current state normally
-        currentState->run();
-      }
-    }
+			// Print finalizing transition info
+			//printInfo(2);
 
-    // Run the transition code while transition is occuring
-    if (operatingMode == FSM_OperatingMode::TRANSITIONING) {
-      transitionData = currentState->transition();
+			// Complete the transition
+			currentState = nextState;
 
-      // Check the robot state for safe operation
-      safetyPostCheck();
+			// Enter the new current state cleanly
+			currentState->onEnter();
 
-      // Run the state transition
-      if (transitionData.done) {
-        // Exit the current state cleanly
-        currentState->onExit();
+			// Return the FSM to normal operation mode
+			operatingMode = FSM_OperatingMode::NORMAL;
+		}
+		} else {
+		// Check the robot state for safe operation
+		safetyPostCheck();
+		}
 
-        // Print finalizing transition info
-        //printInfo(2);
+	} else { // if ESTOP
+		currentState = statesList.passive;
+		currentState->onEnter();
+		nextStateName = currentState->stateName;
+	}
 
-        // Complete the transition
-        currentState = nextState;
+	// Print the current state of the FSM
+	printInfo(0);
 
-        // Enter the new current state cleanly
-        currentState->onEnter();
-
-        // Return the FSM to normal operation mode
-        operatingMode = FSM_OperatingMode::NORMAL;
-      }
-    } else {
-      // Check the robot state for safe operation
-      safetyPostCheck();
-    }
-
-  } else { // if ESTOP
-    currentState = statesList.passive;
-    currentState->onEnter();
-    nextStateName = currentState->stateName;
-  }
-
-  // Print the current state of the FSM
-  printInfo(0);
-
-  // Increase the iteration counter
-  iter++;
+	// Increase the iteration counter
+	iter++;
 }
 
 /**
