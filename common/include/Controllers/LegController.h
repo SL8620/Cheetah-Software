@@ -18,6 +18,8 @@
 #include "SimUtilities/SpineBoard.h"
 #include "SimUtilities/ti_boardcontrol.h"
 
+#include "CyberdogInterface.h"
+
 /*!
  * Data sent from the control algorithm to the legs.
  */
@@ -62,10 +64,15 @@ class LegController {
 
   void zeroCommand();
   void edampCommand(RobotType robot, T gain);
+
   void updateData(const SpiData* spiData);
   void updateData(const TiBoardData* tiBoardData);
+  void updateData(const CyberdogData* cyberdogData);
+
   void updateCommand(SpiCommand* spiCommand);
   void updateCommand(TiBoardCommand* tiBoardCommand);
+  void updateCommand(CyberdogCmd* cyberdogCmd);
+
   void setEnabled(bool enabled) { _legsEnabled = enabled; };
   void setLcm(leg_control_data_lcmt* data, leg_control_command_lcmt* command);
 
