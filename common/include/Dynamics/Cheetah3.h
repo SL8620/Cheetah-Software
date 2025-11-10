@@ -51,7 +51,7 @@ Quadruped<T> buildCheetah3() {
   cheetah._batteryV = 65;
   cheetah._motorKT = 0.266;
   cheetah._motorR = 0.45;
-  cheetah._jointDamping = .1;
+  cheetah._jointDamping = 0.1;
   cheetah._jointDryFriction = 1;
   cheetah._motorTauMax = 27.2;
 
