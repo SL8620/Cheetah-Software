@@ -9,7 +9,7 @@
 #include <rt/rt_rc_interface.h>
 
 /**
- * /**
+ * 
  * 控制FSM的构造函数
  * 传递所有必要的数据并存储在结构中，用启动状态和操作模式初始化FSM
  * 传入参数从RobotRunner的RobotController* _robot_ctrl赋值来
