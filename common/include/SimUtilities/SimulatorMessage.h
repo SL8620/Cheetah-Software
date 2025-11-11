@@ -16,6 +16,7 @@
 #include "SimUtilities/VisualizationData.h"
 #include "SimUtilities/ti_boardcontrol.h"
 #include "Utilities/SharedMemory.h"
+#include "CyberdogInterface.h"
 
 /*!
  * The mode for the simulator
@@ -31,44 +32,49 @@ enum class SimulatorMode {
 /*!
  * A plain message from the simulator to the robot
  */
-struct SimulatorToRobotMessage {
-  GamepadCommand gamepadCommand;  // joystick
-  RobotType robotType;  // which robot the simulator thinks we are simulating
+struct SimulatorToRobotMessage 
+{
+	GamepadCommand gamepadCommand;  // joystick
+	RobotType robotType;  // which robot the simulator thinks we are simulating
 
-  // imu data
-  VectorNavData vectorNav;
-  CheaterState<double> cheaterState;
+	// imu data
+	VectorNavData vectorNav;
+	CheaterState<double> cheaterState;
 
-  // leg data
-  SpiData spiData;
-  TiBoardData tiBoardData[4];
-  // todo cheetah 3
-  ControlParameterRequest controlParameterRequest;
+	// leg data
+	CyberdogData cyberdogData;
+	SpiData spiData;
+	TiBoardData tiBoardData[4];
+	// todo cheetah 3
+	ControlParameterRequest controlParameterRequest;
 
-  SimulatorMode mode;
+	SimulatorMode mode;
 };
 
 /*!
  * A plain message from the robot to the simulator
  */
-struct RobotToSimulatorMessage {
-  RobotType robotType;
-  SpiCommand spiCommand;
-  TiBoardCommand tiBoardCommand[4];
+struct RobotToSimulatorMessage 
+{
+	RobotType robotType;
+	SpiCommand spiCommand;
+	CyberdogCmd cyberdogCmd;
+	TiBoardCommand tiBoardCommand[4];
 
-  VisualizationData visualizationData;
-  CheetahVisualization mainCheetahVisualization;
-  ControlParameterResponse controlParameterResponse;
+	VisualizationData visualizationData;
+	CheetahVisualization mainCheetahVisualization;
+	ControlParameterResponse controlParameterResponse;
 
-  char errorMessage[2056];
+	char errorMessage[2056];
 };
 
 /*!
  * All the data shared between the robot and the simulator
  */
-struct SimulatorMessage {
-  RobotToSimulatorMessage robotToSim;
-  SimulatorToRobotMessage simToRobot;
+struct SimulatorMessage 
+{
+	RobotToSimulatorMessage robotToSim;
+	SimulatorToRobotMessage simToRobot;
 };
 
 /*!

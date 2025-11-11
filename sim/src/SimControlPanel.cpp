@@ -121,7 +121,7 @@ SimControlPanel::SimControlPanel(QWidget* parent)
   _pointsLCM.subscribe("cf_pointcloud", &SimControlPanel::handlePointsLCM, this);
   _pointsLCMThread = std::thread(&SimControlPanel::pointsLCMThread, this); 
 
-  _heightmapLCM.subscribe("local_heightmap", &SimControlPanel::handleHeightmapLCM, this);
+  _heightmapLCM.subscribe("local_heightmap", &SimControlPanel::handleHeightmapLCM, this); //绿色网格
   _heightmapLCMThread = std::thread(&SimControlPanel::heightmapLCMThread, this);
 
   _indexmapLCM.subscribe("traversability", &SimControlPanel::handleIndexmapLCM, this);

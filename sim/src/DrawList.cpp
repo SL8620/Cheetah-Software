@@ -7,38 +7,44 @@
 
 #include "DrawList.h"
 
-void DrawList::loadFiles() {
-  printf("[DrawList] Load object files...\n");
-  std::vector<std::string> names = {
-      "c3_body.obj",         "mini_abad.obj",
-      "c3_upper_link.obj",   "c3_lower_link.obj",
-      "mini_body.obj",       "mini_abad.obj",
-      "mini_upper_link.obj", "mini_lower_link.obj",
-      "sphere.obj",          "cube.obj"};
-  for (const auto& name : names) {
-    std::string filename = _baseFileName + name;
-    _vertexData.emplace_back();
-    _normalData.emplace_back();
-    _colorData.emplace_back();
-    load_obj_file(filename, _vertexData.back(), _normalData.back());
-    if (name == "sphere.obj") {
-      setSolidColor(_colorData.back(), _vertexData.back().size(),
-                    debugRedColor[0], debugRedColor[1], debugRedColor[2]);
-    } else if (name == "cube.obj") {
-      setSolidColor(_colorData.back(), _vertexData.back().size(),
-                    disgustingGreen[0], disgustingGreen[1], disgustingGreen[2]);
-    } else {
-      setSolidColor(_colorData.back(), _vertexData.back().size(),
-                    defaultRobotColor[0], defaultRobotColor[1],
-                    defaultRobotColor[2]);
-    }
+void DrawList::loadFiles() 
+{
+	printf("[DrawList] Load object files...\n");
+	std::vector<std::string> names = 
+	{
+		"c3_body.obj",         "mini_abad.obj",
+		"c3_upper_link.obj",   "c3_lower_link.obj",
+		"trunk.obj",       "mini_abad.obj",
+		"mini_upper_link.obj", "mini_lower_link.obj",
+		"sphere.obj",          "cube.obj",
+		"mini_upper_link_mirror.obj"
+	};//lqh
 
-    _nUnique++;
-  }
-  _sphereLoadIndex = 8;
-  _cubeLoadIndex = 9;
-  _miniCheetahLoadIndex = 4;
-  _cheetah3LoadIndex = 0;
+	for (const auto& name : names) 
+	{
+		std::string filename = _baseFileName + name;
+		_vertexData.emplace_back();
+		_normalData.emplace_back();
+		_colorData.emplace_back();
+		load_obj_file(filename, _vertexData.back(), _normalData.back());
+		if (name == "sphere.obj") {
+		setSolidColor(_colorData.back(), _vertexData.back().size(),
+						debugRedColor[0], debugRedColor[1], debugRedColor[2]);
+		} else if (name == "cube.obj") {
+		setSolidColor(_colorData.back(), _vertexData.back().size(),
+						disgustingGreen[0], disgustingGreen[1], disgustingGreen[2]);
+		} else {
+		setSolidColor(_colorData.back(), _vertexData.back().size(),
+						defaultRobotColor[0], defaultRobotColor[1],
+						defaultRobotColor[2]);
+		}
+
+		_nUnique++;
+	}
+	_sphereLoadIndex = 8;
+	_cubeLoadIndex = 9;
+	_miniCheetahLoadIndex = 4;
+	_cheetah3LoadIndex = 0;
 }
 /*!
  * Load the cheetah 3 model and build the draw list.
@@ -145,10 +151,11 @@ size_t DrawList::addMiniCheetah(Vec4<float> color, bool useOld, bool canHide) {
   bodyOffset.setToIdentity();
 
   // abads (todo, check these)
+
   abadOffsets[0].setToIdentity();  // n
-  abadOffsets[0].rotate(-90, 0, 0, 1);
-  abadOffsets[0].translate(0, -.0565f, 0);
-  abadOffsets[0].rotate(180, 0, 1, 0);
+  abadOffsets[0].rotate(-90, 0, 0, 1); //
+  abadOffsets[0].translate(0, -.0565f, 0); //
+  abadOffsets[0].rotate(180, 0, 1, 0);    //
 
   abadOffsets[1].setToIdentity();  // p
   abadOffsets[1].rotate(-90, 0, 0, 1);
@@ -173,17 +180,18 @@ size_t DrawList::addMiniCheetah(Vec4<float> color, bool useOld, bool canHide) {
   lower.setToIdentity();
   lower.rotate(180, 0, 1, 0);
 
+  (void) color;//lqh
   SolidColor bodyColor, abadColor, link1Color, link2Color;
-  bodyColor.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : color;
+  bodyColor.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : Vec4<float>(.4, .5, .5, .8);//color;  //lqh 2021.1.6 .7, .2, .4, .5 red
   bodyColor.useSolidColor = true;
 
-  abadColor.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : color;
+  abadColor.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : Vec4<float>(.5, .5, .5, .9);//color; 0.1,0.1,0.1 dark
   abadColor.useSolidColor = true;
 
-  link1Color.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : color;
+  link1Color.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : Vec4<float>(.5, .5, .5, .9);//color;  .9, .9, .1, .6 yellow
   link1Color.useSolidColor = true;
 
-  link2Color.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : color;
+  link2Color.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : Vec4<float>(.1, .1, .1, .9);//color;
   link2Color.useSolidColor = true;
 
   _canBeHidden.push_back(canHide);
@@ -202,7 +210,7 @@ size_t DrawList::addMiniCheetah(Vec4<float> color, bool useOld, bool canHide) {
     _kinematicXform.push_back(eye);
     _instanceColor.push_back(abadColor);
 
-    _objectMap.push_back(i0 + 2);
+    _objectMap.push_back((i%2)?(i0 + 2):10);  //lqh,right legs load upper_mirror(10)
     _canBeHidden.push_back(canHide);
     _modelOffsets.push_back(upper);
     _kinematicXform.push_back(eye);

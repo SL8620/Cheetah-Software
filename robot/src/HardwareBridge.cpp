@@ -231,114 +231,254 @@ MiniCheetahHardwareBridge::MiniCheetahHardwareBridge(RobotController* robot_ctrl
 /*!
  * Main method for Mini Cheetah hardware
  */
-void MiniCheetahHardwareBridge::run() {
-  initCommon();
-  initHardware();
+void MiniCheetahHardwareBridge::run() 
+{
+	initCommon();
 
-  if(_load_parameters_from_file) {
-    printf("[Hardware Bridge] Loading parameters from file...\n");
+#ifdef CYBERDOG
+	_cyberdogInterface = new CyberdogInterface(500);
+#else
+	initHardware();
+#endif
+	// 改动正常
 
-    try {
-      _robotParams.initializeFromYamlFile(THIS_COM "config/mini-cheetah-defaults.yaml");
-    } catch(std::exception& e) {
-      printf("Failed to initialize robot parameters from yaml file: %s\n", e.what());
-      exit(1);
-    }
+	if(_load_parameters_from_file) {
+		printf("[Hardware Bridge] Loading parameters from file...\n");
 
-    if(!_robotParams.isFullyInitialized()) {
-      printf("Failed to initialize all robot parameters\n");
-      exit(1);
-    }
+		try {
+		_robotParams.initializeFromYamlFile(THIS_COM "config/mini-cheetah-defaults.yaml");
+		} catch(std::exception& e) {
+		printf("Failed to initialize robot parameters from yaml file: %s\n", e.what());
+		exit(1);
+		}
 
-    printf("Loaded robot parameters\n");
+		if(!_robotParams.isFullyInitialized()) {
+		printf("Failed to initialize all robot parameters\n");
+		exit(1);
+		}
 
-    if(_userControlParameters) {
-      try {
-        _userControlParameters->initializeFromYamlFile(THIS_COM "config/mc-mit-ctrl-user-parameters.yaml");
-      } catch(std::exception& e) {
-        printf("Failed to initialize user parameters from yaml file: %s\n", e.what());
-        exit(1);
-      }
+		printf("Loaded robot parameters\n");
 
-      if(!_userControlParameters->isFullyInitialized()) {
-        printf("Failed to initialize all user parameters\n");
-        exit(1);
-      }
+		if(_userControlParameters) {
+		try {
+			_userControlParameters->initializeFromYamlFile(THIS_COM "config/mc-mit-ctrl-user-parameters.yaml");
+		} catch(std::exception& e) {
+			printf("Failed to initialize user parameters from yaml file: %s\n", e.what());
+			exit(1);
+		}
 
-      printf("Loaded user parameters\n");
+		if(!_userControlParameters->isFullyInitialized()) {
+			printf("Failed to initialize all user parameters\n");
+			exit(1);
+		}
+
+		printf("Loaded user parameters\n");
+		} else {
+		printf("Did not load user parameters because there aren't any\n");
+		}
+	} else {
+		printf("[Hardware Bridge] Loading parameters over LCM...\n");
+		while (!_robotParams.isFullyInitialized()) {
+		printf("[Hardware Bridge] Waiting for robot parameters...\n");
+		usleep(1000000);
+		}
+
+		if(_userControlParameters) {
+		while (!_userControlParameters->isFullyInitialized()) {
+			printf("[Hardware Bridge] Waiting for user parameters...\n");
+			usleep(1000000);
+		}
+		}
+	}
+
+
+
+	printf("[Hardware Bridge] Got all parameters, starting up!\n");
+
+	_robotRunner = new RobotRunner(_controller, &taskManager, _robotParams.controller_dt, "robot-control");
+
+	_robotRunner->driverCommand = &_gamepadCommand;
+	
+#ifdef CYBERDOG
+    // 确保 _cyberdogInterface 已被正确初始化
+    if (_cyberdogInterface != nullptr) {
+        _robotRunner->cyberdogCmd = &_cyberdogInterface->cyberdogCmd;
+        _robotRunner->cyberdogData = &_cyberdogInterface->cyberdogData;
     } else {
-      printf("Did not load user parameters because there aren't any\n");
+        // 处理初始化失败的情况
+        std::cerr << "错误: _cyberdogInterface 未初始化!" << std::endl;
+        // 可以选择回退到其他模式或安全处理
     }
-  } else {
-    printf("[Hardware Bridge] Loading parameters over LCM...\n");
-    while (!_robotParams.isFullyInitialized()) {
-      printf("[Hardware Bridge] Waiting for robot parameters...\n");
-      usleep(1000000);
-    }
+#else
+    _robotRunner->spiData = &_spiData;
+    _robotRunner->spiCommand = &_spiCommand;
+#endif
 
-    if(_userControlParameters) {
-      while (!_userControlParameters->isFullyInitialized()) {
-        printf("[Hardware Bridge] Waiting for user parameters...\n");
+	_robotRunner->robotType = RobotType::MINI_CHEETAH;
+	_robotRunner->vectorNavData = &_vectorNavData;
+	_robotRunner->controlParameters = &_robotParams;
+	_robotRunner->visualizationData = &_visualizationData;
+	_robotRunner->cheetahMainVisualization = &_mainCheetahVisualization;
+
+	_robotRunner->init();
+    _firstRun = false;
+    
+    // 初始化控制线程
+    
+    // 启动状态任务
+    statusTask.start();
+
+#ifdef CYBERDOG
+    // cyberdog的imu数据从这个线程里获取
+    _cyberdogThread = std::thread(&MiniCheetahHardwareBridge::CyberdogProcessData, this);
+#else
+    // 启动spi通信任务，spi通信负责传输控制命令和接收传感器数据
+    PeriodicMemberFunction<MiniCheetahHardwareBridge> spiTask(
+            &taskManager, .002, "spi", &MiniCheetahHardwareBridge::runSpi, this);
+    spiTask.start();
+    
+    // 启动IMU线程
+    if(_microstrainInit)
+    {
+        _microstrainThread = std::thread(&MiniCheetahHardwareBridge::runMicrostrain, this);
+    }
+#endif
+    
+    // 执行RobotRunner的任务，开启机器人控制器
+    _robotRunner->start();
+
+#ifndef CYBERDOG
+    // 启动可视化数据LCM通信任务
+    PeriodicMemberFunction<MiniCheetahHardwareBridge> visualizationLCMTask(
+            &taskManager, .0167, "lcm-vis",
+            &MiniCheetahHardwareBridge::publishVisualizationLCM, this);
+    visualizationLCMTask.start();
+    
+    // 启动惯性导航日志任务
+    PeriodicMemberFunction<MiniCheetahHardwareBridge> microstrainLogger(
+            &taskManager, .001, "microstrain-logger",
+            &MiniCheetahHardwareBridge::logMicrostrain, this);
+    microstrainLogger.start();
+#endif
+
+#ifdef USE_RC
+    // 启动遥控器指令接收任务
+    _port = init_sbus(false);  // Not Simulation
+    PeriodicMemberFunction<HardwareBridge> sbusTask(
+            &taskManager, .005, "rc_controller",
+            &HardwareBridge::run_sbus, this);
+    sbusTask.start();
+#endif
+
+#ifdef USE_KEYBOARD
+    _keyboradThread = std::thread(&MiniCheetahHardwareBridge::run_keyboard, this);
+#endif
+    
+    //每隔1秒循环
+    for(;;)
+    {
         usleep(1000000);
-      }
+        // printf("joy %f\n", _robotRunner->driverCommand->leftStickAnalog[0]);
     }
-  }
+}
 
+static bool kbhit()
+{
+    termios term;
+    tcgetattr(0, &term);
+    
+    termios term2 = term;
+    term2.c_lflag &= ~ICANON;
+    tcsetattr(0, TCSANOW, &term2);
+    
+    int byteswaiting;
+    ioctl(0, FIONREAD, &byteswaiting);
+    
+    tcsetattr(0, TCSANOW, &term);
+    
+    return byteswaiting > 0;
+}
 
+extern rc_control_settings rc_control;
 
-  printf("[Hardware Bridge] Got all parameters, starting up!\n");
-
-  _robotRunner =
-      new RobotRunner(_controller, &taskManager, _robotParams.controller_dt, "robot-control");
-
-  _robotRunner->driverCommand = &_gamepadCommand;
-  _robotRunner->spiData = &_spiData;
-  _robotRunner->spiCommand = &_spiCommand;
-  _robotRunner->robotType = RobotType::MINI_CHEETAH;
-  _robotRunner->vectorNavData = &_vectorNavData;
-  _robotRunner->controlParameters = &_robotParams;
-  _robotRunner->visualizationData = &_visualizationData;
-  _robotRunner->cheetahMainVisualization = &_mainCheetahVisualization;
-
-  _firstRun = false;
-
-  // init control thread
-
-  statusTask.start();
-
-  // spi Task start
-  PeriodicMemberFunction<MiniCheetahHardwareBridge> spiTask(
-      &taskManager, .002, "spi", &MiniCheetahHardwareBridge::runSpi, this);
-  spiTask.start();
-
-  // microstrain
-  if(_microstrainInit)
-    _microstrainThread = std::thread(&MiniCheetahHardwareBridge::runMicrostrain, this);
-
-  // robot controller start
-  _robotRunner->start();
-
-  // visualization start
-  PeriodicMemberFunction<MiniCheetahHardwareBridge> visualizationLCMTask(
-      &taskManager, .0167, "lcm-vis",
-      &MiniCheetahHardwareBridge::publishVisualizationLCM, this);
-  visualizationLCMTask.start();
-
-  // rc controller
-  _port = init_sbus(false);  // Not Simulation
-  PeriodicMemberFunction<HardwareBridge> sbusTask(
-      &taskManager, .005, "rc_controller", &HardwareBridge::run_sbus, this);
-  sbusTask.start();
-
-  // temporary hack: microstrain logger
-  PeriodicMemberFunction<MiniCheetahHardwareBridge> microstrainLogger(
-      &taskManager, .001, "microstrain-logger", &MiniCheetahHardwareBridge::logMicrostrain, this);
-  microstrainLogger.start();
-
-  for (;;) {
-    usleep(1000000);
-    // printf("joy %f\n", _robotRunner->driverCommand->leftStickAnalog[0]);
-  }
+void HardwareBridge::run_keyboard()
+{
+    int c;
+    // Check for keyboard input
+    while(true)
+    {
+        if(kbhit())
+        {
+            c = fgetc(stdin);
+            printf("0: switch mode to OFF\r\n");
+            printf("6: switch mode to RECOVERY_STAND\r\n");
+            printf("3: switch mode to BALANCE_STAND\r\n");
+            printf("4: switch mode to LOCOMOTION\r\n");
+            printf("q: height+0.1\r\n");
+            printf("z: height-0.1\r\n");
+            printf("w: roll+0.1\r\n");
+            printf("x: roll-0.1\r\n");
+            printf("e: pitch+0.1\r\n");
+            printf("c: pitch-0.1\r\n");
+            printf("r: yaw+0.1\r\n");
+            printf("v: yaw-0.1\r\n");
+            switch(c)
+            {
+                case '0':
+                    printf("switch mode to OFF\r\n");
+                    rc_control.mode = 0;
+                    break;
+                case '6':
+                    printf("switch mode to RECOVERY_STAND\r\n");
+                    rc_control.mode = 12;
+                    break;
+                case '3':
+                    printf("switch mode to BALANCE_STAND\r\n");
+                    rc_control.mode = 3;
+                    break;
+                case '4':
+                    printf("switch mode to LOCOMOTION\r\n");
+                    rc_control.mode = 11;
+                    break;
+                case 'q':
+                    printf("height+0.1\r\n");
+                    rc_control.height_variation += 0.1;
+                    break;
+                case 'z':
+                    printf("height-0.1\r\n");
+                    rc_control.height_variation -= 0.1;
+                    break;
+                case 'w':
+                    printf("roll+0.1\r\n");
+                    rc_control.rpy_des[0] += 0.1;
+                    break;
+                case 'x':
+                    printf("roll-0.1\r\n");
+                    rc_control.rpy_des[0] -= 0.1;
+                    break;
+                case 'e':
+                    printf("pitch+0.1\r\n");
+                    rc_control.rpy_des[1] += 0.1;
+                    break;
+                case 'c':
+                    printf("pitch-0.1\r\n");
+                    rc_control.rpy_des[1] -= 0.1;
+                    break;
+                case 'r':
+                    printf("yaw+0.1\r\n");
+                    rc_control.rpy_des[2] += 0.1;
+                    break;
+                case 'v':
+                    printf("yaw-0.1\r\n");
+                    rc_control.rpy_des[2] -= 0.1;
+                    break;
+                default:
+                    break;
+            }
+        }
+        usleep(10000);
+    }
+    
 }
 
 /*!
@@ -587,6 +727,78 @@ void Cheetah3HardwareBridge::run() {
     taskManager.printStatus();
     // printf("joy %f\n", _robotRunner->driverCommand->leftStickAnalog[0]);
   }
+}
+
+void MiniCheetahHardwareBridge::CyberdogProcessData()
+{
+    long count = 0;
+    while(true)
+    {
+        count++;
+        if(count % 200000 == 0)
+        {
+            count = 0;
+            printf("interval:---------%.4d-------------\n", _cyberdogInterface->cyberdogData.ctrl_topic_interval);
+            printf("rpy [3]:");
+            for(int i = 0; i < 3; i++)
+                printf(" %.2f", _cyberdogInterface->cyberdogData.rpy[i]);
+            printf("\nacc [3]:");
+            for(int i = 0; i < 3; i++)
+                printf(" %.2f", _cyberdogInterface->cyberdogData.acc[i]);
+            printf("\nquat[4]:");
+            for(int i = 0; i < 4; i++)
+                printf(" %.2f", _cyberdogInterface->cyberdogData.quat[i]);
+            printf("\nomeg[3]:");
+            for(int i = 0; i < 3; i++)
+                printf(" %.2f", _cyberdogInterface->cyberdogData.omega[i]);
+            printf("\nq  [12]:");
+            for(int i = 0; i < 12; i++)
+                printf(" %.2f", _cyberdogInterface->cyberdogData.q[i]);
+            printf("\nqd [12]:");
+            for(int i = 0; i < 12; i++)
+                printf(" %.2f", _cyberdogInterface->cyberdogData.qd[i]);
+            printf("\ntau[12]:");
+            for(int i = 0; i < 12; i++)
+                printf(" %.2f", _cyberdogInterface->cyberdogData.tau[i]);
+            printf("\nq_des[12]:");
+            for(int i = 0; i < 12; i++)
+                printf(" %.2f", _cyberdogInterface->cyberdogCmd.q_des[i]);
+            printf("\nqd_des[12]:");
+            for(int i = 0; i < 12; i++)
+                printf(" %.2f", _cyberdogInterface->cyberdogCmd.qd_des[i]);
+            printf("\nkp_des[12]:");
+            for(int i = 0; i < 12; i++)
+                printf(" %.2f", _cyberdogInterface->cyberdogCmd.kp_des[i]);
+            printf("\nkd_des[12]:");
+            for(int i = 0; i < 12; i++)
+                printf(" %.2f", _cyberdogInterface->cyberdogCmd.kd_des[i]);
+            printf("\ntau_des[12]:");
+            for(int i = 0; i < 12; i++)
+                printf(" %.2f", _cyberdogInterface->cyberdogCmd.tau_des[i]);
+            printf("\n\n");
+        }
+        
+        
+        //IMU
+        for(int i = 0; i < 3; i++)
+        {
+            _vectorNavData.accelerometer(i) = _cyberdogInterface->cyberdogData.acc[i];
+        }
+        for(int i = 0; i < 4; i++)
+        {
+            // 注意 Cyberdog SDK 的四元数顺序为 xyzw 需要转成 wxyz
+//            _vectorNavData.quat(i) = _cyberdogInterface->cyberdogData.quat[i];
+            _vectorNavData.quat[0] = _cyberdogInterface->cyberdogData.quat[1];
+            _vectorNavData.quat[1] = _cyberdogInterface->cyberdogData.quat[2];
+            _vectorNavData.quat[2] = _cyberdogInterface->cyberdogData.quat[3];
+            _vectorNavData.quat[3] = _cyberdogInterface->cyberdogData.quat[0];
+        }
+        for(int i = 0; i < 3; i++)
+        {
+            _vectorNavData.gyro(i) = _cyberdogInterface->cyberdogData.omega[i];
+        }
+        usleep(1);
+    }
 }
 
 #endif

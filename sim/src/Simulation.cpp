@@ -6,6 +6,7 @@
 #include <include/GameController.h>
 #include <unistd.h>
 #include <fstream>
+#include <lcm.h>
 
 // if DISABLE_HIGH_LEVEL_CONTROL is defined, the simulator will run freely,
 // without trying to connect to a robot
@@ -54,9 +55,9 @@ Simulation::Simulation(RobotType robot, Graphics3D* window,
   if (_window) {
     printf("[Simulation] Setup Cheetah graphics...\n");
     Vec4<float> truthColor, seColor;
-    truthColor << 0.2, 0.4, 0.2, 0.6;
+    truthColor << 0.1, 0.1, 0.1, 0.6;
     seColor << .75,.75,.75, 1.0;
-    _simRobotID = _robot == RobotType::MINI_CHEETAH ? window->setupMiniCheetah(truthColor, true, true)
+    _simRobotID = _robot == RobotType::MINI_CHEETAH ? window->setupMiniCheetah(truthColor, false, true)
                                                     : window->setupCheetah3(truthColor, true, true);
     _controllerRobotID = _robot == RobotType::MINI_CHEETAH
                              ? window->setupMiniCheetah(seColor, false, false)
@@ -67,8 +68,7 @@ Simulation::Simulation(RobotType robot, Graphics3D* window,
   printf("[Simulation] Build rigid body model...\n");
   _model = _quadruped.buildModel();
   _robotDataModel = _quadruped.buildModel();
-  _simulator =
-      new DynamicsSimulator<double>(_model, (bool)_simParams.use_spring_damper);
+  _simulator = new DynamicsSimulator<double>(_model, (bool)_simParams.use_spring_damper);
   _robotDataSimulator = new DynamicsSimulator<double>(_robotDataModel, false);
 
   DVec<double> zero12(12);
@@ -132,22 +132,24 @@ Simulation::Simulation(RobotType robot, Graphics3D* window,
 
   // Cheetah lies on the ground
   //x0.bodyPosition[2] = -0.45;
+
+
   x0.bodyPosition[2] = 0.05;
   x0.q[0] = -0.7;
-  x0.q[1] = 1.;
+  x0.q[1] = -1.;
   x0.q[2] = 2.715;
 
   x0.q[3] = 0.7;
-  x0.q[4] = 1.;
+  x0.q[4] = -1.;
   x0.q[5] = 2.715;
 
   x0.q[6] = -0.7;
   x0.q[7] = -1.0;
-  x0.q[8] = -2.715;
+  x0.q[8] = 2.715;
 
   x0.q[9] = 0.7;
   x0.q[10] = -1.0;
-  x0.q[11] = -2.715;
+  x0.q[11] = 2.715;
 
 
   setRobotState(x0);
@@ -155,6 +157,7 @@ Simulation::Simulation(RobotType robot, Graphics3D* window,
 
   printf("[Simulation] Setup low-level control...\n");
   // init spine:
+  //初始化spine,仿真中指定spineBoards数据映射到spiData
   if (_robot == RobotType::MINI_CHEETAH) {
     for (int leg = 0; leg < 4; leg++) {
       _spineBoards[leg].init(Quadruped<float>::getSideSign(leg), leg);
@@ -180,7 +183,7 @@ Simulation::Simulation(RobotType robot, Graphics3D* window,
 
   // init shared memory
   printf("[Simulation] Setup shared memory...\n");
-  _sharedMemory.createNew(DEVELOPMENT_SIMULATOR_SHARED_MEMORY_NAME, true);
+  _sharedMemory.createNew(DEVELOPMENT_SIMULATOR_SHARED_MEMORY_NAME, true);  //创建一个名称为"development-simulator"的共享内存
   _sharedMemory().init();
 
   // shared memory fields:
@@ -373,7 +376,27 @@ void Simulation::step(double dt, double dtLowLevelControl,
   _simulator->setHoming(homing);
 
   _simulator->step(dt, _tau, _simParams.floor_kp, _simParams.floor_kd);
+
+//    static std::ofstream log_SimTau("/home/user/log/log_SimTau.csv");
+//    log_SimTau<< _tau[0]<<",";
+//    log_SimTau<< _tau[1]<<",";
+//    log_SimTau<< _tau[2]<<",";
+//    log_SimTau<<",";
+//    log_SimTau<< _tau[3]<<",";
+//    log_SimTau<< _tau[4]<<",";
+//    log_SimTau<< _tau[5]<<",";
+//    log_SimTau<<",";
+//    log_SimTau<< _tau[6]<<",";
+//    log_SimTau<< _tau[7]<<",";
+//    log_SimTau<< _tau[8]<<",";
+//    log_SimTau<<",";
+//    log_SimTau<< _tau[9]<<",";
+//    log_SimTau<< _tau[10]<<",";
+//    log_SimTau<< _tau[11]<<",";
+//    log_SimTau<<",";
+//    log_SimTau<<std::endl;
 }
+
 
 void Simulation::lowLevelControl() {
   if (_robot == RobotType::MINI_CHEETAH) {
@@ -414,10 +437,10 @@ void Simulation::lowLevelControl() {
 }
 
 
-
+//
 void Simulation::highLevelControl() {
   // send joystick data to robot:
-  _sharedMemory().simToRobot.gamepadCommand = _window->getDriverCommand();
+  _sharedMemory().simToRobot.gamepadCommand = _window->getDriverCommand(); //sim端游戏手柄命令传递到共享内存上
   _sharedMemory().simToRobot.gamepadCommand.applyDeadband(
       _simParams.game_controller_deadband);
 
@@ -433,7 +456,7 @@ void Simulation::highLevelControl() {
 
   // send leg data to robot
   if (_robot == RobotType::MINI_CHEETAH) {
-    _sharedMemory().simToRobot.spiData = _spiData;
+    _sharedMemory().simToRobot.spiData = _spiData; // lowlevelcontrol中采集仿真数据当作spiData，仿真到数据放到共享内存上,传递给机器人
   } else if (_robot == RobotType::CHEETAH_3) {
     for (int i = 0; i < 4; i++) {
       _sharedMemory().simToRobot.tiBoardData[i] = *_tiBoards[i].data;

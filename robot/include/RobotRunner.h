@@ -27,58 +27,62 @@
 #include "RobotController.h"
 #include <lcm-cpp.hpp>
 
-class RobotRunner : public PeriodicTask {
- public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+class RobotRunner : public PeriodicTask 
+{
+public:
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  RobotRunner(RobotController* , PeriodicTaskManager*, float, std::string);
-  using PeriodicTask::PeriodicTask;
-  void init() override;
-  void run() override;
-  void cleanup() override;
+	RobotRunner(RobotController* , PeriodicTaskManager*, float, std::string);
+	using PeriodicTask::PeriodicTask;
+	void init() override;
+	void run() override;
+	void cleanup() override;
 
-  // Initialize the state estimator with default no cheaterMode
-  void initializeStateEstimator(bool cheaterMode = false);
-  virtual ~RobotRunner();
+	// Initialize the state estimator with default no cheaterMode
+	void initializeStateEstimator(bool cheaterMode = false);
+	virtual ~RobotRunner();
 
-  RobotController* _robot_ctrl;
+	RobotController* _robot_ctrl;
 
-  GamepadCommand* driverCommand;
-  RobotType robotType;
-  VectorNavData* vectorNavData;
-  CheaterState<double>* cheaterState;
-  SpiData* spiData;
-  SpiCommand* spiCommand;
-  TiBoardCommand* tiBoardCommand;
-  TiBoardData* tiBoardData;
-  RobotControlParameters* controlParameters;
-  VisualizationData* visualizationData;
-  CheetahVisualization* cheetahMainVisualization;
+	GamepadCommand* driverCommand;
+	RobotType robotType;
+	VectorNavData* vectorNavData;
+	CheaterState<double>* cheaterState;
 
- private:
-  float _ini_yaw;
+	CyberdogData* cyberdogData;
+	CyberdogCmd*  cyberdogCmd;
+	SpiData* spiData;
+	SpiCommand* spiCommand;
+	TiBoardCommand* tiBoardCommand;
+	TiBoardData* tiBoardData;
+	RobotControlParameters* controlParameters;
+	VisualizationData* visualizationData;
+	CheetahVisualization* cheetahMainVisualization;
 
-  int iter = 0;
+private:
+	float _ini_yaw;
 
-  void setupStep();
-  void finalizeStep();
+	int iter = 0;
 
-  JPosInitializer<float>* _jpos_initializer;
-  Quadruped<float> _quadruped;
-  LegController<float>* _legController = nullptr;
-  StateEstimate<float> _stateEstimate;
-  StateEstimatorContainer<float>* _stateEstimator;
-  bool _cheaterModeEnabled = false;
-  DesiredStateCommand<float>* _desiredStateCommand;
-  rc_control_settings rc_control;
-  lcm::LCM _lcm;
-  leg_control_command_lcmt leg_control_command_lcm;
-  state_estimator_lcmt state_estimator_lcm;
-  leg_control_data_lcmt leg_control_data_lcm;
-  // Contact Estimator to calculate estimated forces and contacts
+	void setupStep();
+	void finalizeStep();
 
-  FloatingBaseModel<float> _model;
-  u64 _iterations = 0;
+	JPosInitializer<float>* _jpos_initializer;
+	Quadruped<float> _quadruped;
+	LegController<float>* _legController = nullptr;
+	StateEstimate<float> _stateEstimate;
+	StateEstimatorContainer<float>* _stateEstimator;
+	bool _cheaterModeEnabled = false;
+	DesiredStateCommand<float>* _desiredStateCommand;
+	rc_control_settings rc_control;
+	lcm::LCM _lcm;
+	leg_control_command_lcmt leg_control_command_lcm;
+	state_estimator_lcmt state_estimator_lcm;
+	leg_control_data_lcmt leg_control_data_lcm;
+	// Contact Estimator to calculate estimated forces and contacts
+
+	FloatingBaseModel<float> _model;
+	u64 _iterations = 0;
 };
 
 #endif  // PROJECT_ROBOTRUNNER_H

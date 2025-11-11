@@ -13,79 +13,82 @@
 /*!
  * Connect to a simulation
  */
-void SimulationBridge::run() {
-  // init shared memory:
-  _sharedMemory.attach(DEVELOPMENT_SIMULATOR_SHARED_MEMORY_NAME);
-  _sharedMemory().init();
+void SimulationBridge::run() 
+{
+    // init shared memory:
+    _sharedMemory.attach(DEVELOPMENT_SIMULATOR_SHARED_MEMORY_NAME);
+    _sharedMemory().init();
 
-  install_segfault_handler(_sharedMemory().robotToSim.errorMessage);
+    install_segfault_handler(_sharedMemory().robotToSim.errorMessage);
 
-  // init Quadruped Controller
+    // init Quadruped Controller
 
-  try {
-    printf("[Simulation Driver] Starting main loop...\n");
-    bool firstRun = true;
-    for (;;) {
-      // wait for our turn to access the shared memory
-      // on the first loop, this gives the simulator a chance to put stuff in
-      // shared memory before we start
-      _sharedMemory().waitForSimulator();
+    try
+	{
+      printf("[Simulation Driver] Starting main loop...\n");
+      bool firstRun = true;
+      for (;;) 
+	  {
+        // wait for our turn to access the shared memory
+        // on the first loop, this gives the simulator a chance to put stuff in
+        // shared memory before we start
+        _sharedMemory().waitForSimulator();
 
-      if (firstRun) {
-        firstRun = false;
-        // check that the robot type is correct:
-        if (_robot != _sharedMemory().simToRobot.robotType) {
-          printf(
-            "simulator and simulatorDriver don't agree on which robot we are "
-            "simulating (robot %d, sim %d)\n",
-            (int)_robot, (int)_sharedMemory().simToRobot.robotType);
-          throw std::runtime_error("robot mismatch!");
+        if (firstRun) {
+          firstRun = false;
+          // check that the robot type is correct:
+          if (_robot != _sharedMemory().simToRobot.robotType) {
+            printf(
+              "simulator and simulatorDriver don't agree on which robot we are "
+              "simulating (robot %d, sim %d)\n",
+              (int)_robot, (int)_sharedMemory().simToRobot.robotType);
+            throw std::runtime_error("robot mismatch!");
+          }
         }
-      }
 
-      // the simulator tells us which mode to run in
-      _simMode = _sharedMemory().simToRobot.mode;
-      switch (_simMode) {
-        case SimulatorMode::RUN_CONTROL_PARAMETERS:  // there is a new control
-          // parameter request
-          handleControlParameters();
-          break;
-        case SimulatorMode::RUN_CONTROLLER:  // the simulator is ready for the
-          // next robot controller run
-          _iterations++;
-          runRobotControl();
-          break;
-        case SimulatorMode::DO_NOTHING:  // the simulator is just checking to see
-          // if we are alive yet
-          break;
-        case SimulatorMode::EXIT:  // the simulator is done with us
-          printf("[Simulation Driver] Transitioned to exit mode\n");
-          return;
-          break;
-        default:
-          throw std::runtime_error("unknown simulator mode");
-      }
+        // the simulator tells us which mode to run in
+        _simMode = _sharedMemory().simToRobot.mode;
+        switch (_simMode) {
+          case SimulatorMode::RUN_CONTROL_PARAMETERS:  // there is a new control
+            // parameter request
+            handleControlParameters();
+            break;
+          case SimulatorMode::RUN_CONTROLLER:  // the simulator is ready for the
+            // next robot controller run
+            _iterations++;
+            runRobotControl();
+            break;
+          case SimulatorMode::DO_NOTHING:  // the simulator is just checking to see
+            // if we are alive yet
+            break;
+          case SimulatorMode::EXIT:  // the simulator is done with us
+            printf("[Simulation Driver] Transitioned to exit mode\n");
+            return;
+            break;
+          default:
+            throw std::runtime_error("unknown simulator mode");
+        }
 
-      // tell the simulator we are done
-      _sharedMemory().robotIsDone();
+        // tell the simulator we are done
+        _sharedMemory().robotIsDone();
+      }
+    } catch (std::exception& e) {
+      strncpy(_sharedMemory().robotToSim.errorMessage, e.what(), sizeof(_sharedMemory().robotToSim.errorMessage));
+      _sharedMemory().robotToSim.errorMessage[sizeof(_sharedMemory().robotToSim.errorMessage) - 1] = '\0';
+      throw e;
     }
-  } catch (std::exception& e) {
-    strncpy(_sharedMemory().robotToSim.errorMessage, e.what(), sizeof(_sharedMemory().robotToSim.errorMessage));
-    _sharedMemory().robotToSim.errorMessage[sizeof(_sharedMemory().robotToSim.errorMessage) - 1] = '\0';
-    throw e;
-  }
 
 }
 
 /*!
  * This function handles a a control parameter message from the simulator
  */
-void SimulationBridge::handleControlParameters() {
-  ControlParameterRequest& request =
-      _sharedMemory().simToRobot.controlParameterRequest;
-  ControlParameterResponse& response =
-      _sharedMemory().robotToSim.controlParameterResponse;
-  if (request.requestNumber <= response.requestNumber) {
+void SimulationBridge::handleControlParameters() 
+{
+  ControlParameterRequest& request = _sharedMemory().simToRobot.controlParameterRequest;
+  ControlParameterResponse& response = _sharedMemory().robotToSim.controlParameterResponse;
+  if (request.requestNumber <= response.requestNumber) 
+  {
     // nothing to do!
     printf(
         "[SimulationBridge] Warning: the simulator has run a ControlParameter "
@@ -230,21 +233,21 @@ void SimulationBridge::runRobotControl() {
     }
 
 
-    _robotRunner->driverCommand =
-        &_sharedMemory().simToRobot.gamepadCommand;
+    _robotRunner->driverCommand =&_sharedMemory().simToRobot.gamepadCommand;
+
+
+	_robotRunner->cyberdogData = &_sharedMemory().simToRobot.cyberdogData;
+	_robotRunner->cyberdogCmd = &_sharedMemory().robotToSim.cyberdogCmd;
     _robotRunner->spiData = &_sharedMemory().simToRobot.spiData;
     _robotRunner->tiBoardData = _sharedMemory().simToRobot.tiBoardData;
     _robotRunner->robotType = _robot;
     _robotRunner->vectorNavData = &_sharedMemory().simToRobot.vectorNav;
     _robotRunner->cheaterState = &_sharedMemory().simToRobot.cheaterState;
     _robotRunner->spiCommand = &_sharedMemory().robotToSim.spiCommand;
-    _robotRunner->tiBoardCommand =
-        _sharedMemory().robotToSim.tiBoardCommand;
+    _robotRunner->tiBoardCommand = _sharedMemory().robotToSim.tiBoardCommand;
     _robotRunner->controlParameters = &_robotParams;
-    _robotRunner->visualizationData =
-        &_sharedMemory().robotToSim.visualizationData;
-    _robotRunner->cheetahMainVisualization =
-        &_sharedMemory().robotToSim.mainCheetahVisualization;
+    _robotRunner->visualizationData =  &_sharedMemory().robotToSim.visualizationData;
+    _robotRunner->cheetahMainVisualization = &_sharedMemory().robotToSim.mainCheetahVisualization;
 
     _robotRunner->init();
     _firstControllerRun = false;

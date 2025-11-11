@@ -550,7 +550,7 @@ void Graphics3D::paintGL() {
 
   ++_frame;
 }
-
+//绘制网格？
 void Graphics3D::_drawMesh(MeshVisualization &mesh) {
 
   glPushMatrix();
@@ -620,7 +620,7 @@ void Graphics3D::_drawObstacleField() {
   double x, y, Prod;
   vectorAligned<Vec3<double> > obs_list_copy;
   size_t num_obs = _obs_list.size();
-  //printf("num obs: %lu\n", num_obs);
+//  printf("num obs: %lu\n", num_obs);
   for(size_t i(0); i<num_obs; ++i){
     obs_list_copy.push_back(_obs_list[i]);
   }
@@ -922,6 +922,7 @@ void Graphics3D::_Additional_Drawing(int pass) {
 
   glDisable(GL_BLEND);
   for (size_t i(0); i< _drawList._visualizationData->num_meshes; ++i){
+      std::cout<<"!!!!!!!!!!!!!!!!!!! drawMesh!!!!!!!!!!!"<<_drawList._visualizationData->num_meshes<<std::endl;
     _drawMesh(_drawList._visualizationData->meshes[i]);
   }
   // Heightmap Drawing
