@@ -14,13 +14,9 @@
 
 #define termios asmtermios
 
-//#include <asm/termios.h>
-#include<asm/ioctls.h>
-#include<asm/termbits.h>
+#include <asm/termios.h>
 
 #undef termios
-
-#include<sys/ioctl.h>
 
 #include <termios.h>
 #include <math.h>

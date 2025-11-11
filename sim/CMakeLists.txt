@@ -12,18 +12,10 @@ if(POLICY CMP0071)
   cmake_policy(SET CMP0071 OLD)
 endif()
 
-set(CMAKE_PREFIX_PATH /home/nvidia/Qt/5.12.0/gcc_64)
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-
 # Instruct CMake to run moc automatically when needed
 set(CMAKE_AUTOMOC ON)
 # Create code from a list of Qt designer ui files
 set(CMAKE_AUTOUIC ON)
-
-set(Qt5Core_DIR     /home/nvidia/Qt/5.12.0/gcc_64/lib/cmake/Qt5Core)
-set(Qt5Widgets_DIR  /home/nvidia/Qt/5.12.0/gcc_64/lib/cmake/Qt5Widgets)
-set(Qt5Gamepad_DIR  /home/nvidia/Qt/5.12.0/gcc_64/lib/cmake/Qt5Gamepad)
-
 find_package(Qt5Core CONFIG REQUIRED)
 find_package(Qt5Widgets CONFIG REQUIRED)
 get_target_property(QtCore_location Qt5::Core LOCATION)

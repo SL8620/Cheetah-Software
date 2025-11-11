@@ -16,17 +16,15 @@ include_directories("../third-party/SOEM/osal/linux")
 include_directories("../third-party/SOEM/oshw")
 include_directories("../third-party/SOEM/oshw/linux")
 
-include_directories("../third-party/cyberdog_motor_sdk/include")
+file(GLOB sources "src/*.cpp" "src/rt/*.c"  "src/rt/*.cpp")
 
-file(GLOB sources "src/*.cpp" "src/rt/*.c" "src/rt/*.cpp")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=stringop-truncation")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=stringop-truncation")
+
 
 add_library(robot SHARED ${sources})
 
-target_compile_options(robot PRIVATE -Wno-stringop-truncation)
-
 target_link_libraries(robot biomimetics pthread lcm inih dynacore_param_handler lord_imu soem)
-if (CMAKE_SYSTEM_NAME MATCHES Linux)
-    target_link_libraries(robot libvnc rt)
-endif ()
-
-target_link_libraries(robot cyberdog_motor_sdk)
+if(CMAKE_SYSTEM_NAME MATCHES Linux)
+target_link_libraries(robot libvnc rt)
+endif()

@@ -25,7 +25,7 @@ if(MINI_CHEETAH_BUILD)
   set(CMAKE_CXX_FLAGS "-O3 -no-pie -ggdb -Wall \
   -Wextra -Wcast-align -Wdisabled-optimization -Wformat=2 \
   -Winit-self -Wmissing-include-dirs -Woverloaded-virtual \
-  -Wshadow -Wsign-promo -Werror")
+  -Wshadow -Wsign-promo -Werror -Wno-error=stringop-truncation")
   set(CMAKE_C_FLAGS "-O3  -ggdb -std=gnu99 -I.")
   message("**** Mini-Cheetah build enabled ****")
 else(MINI_CHEETAH_BUILD)
