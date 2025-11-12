@@ -2,6 +2,9 @@
 
 void CyberdogInterface::UserCode()
 {
-    cyberdogData = robot_data;  // 底层电机imu状态->上层
-    motor_cmd = cyberdogCmd;    // 上层电机控制信息->底层
+    {
+        std::lock_guard<std::mutex> lock(_dataMutex);
+        cyberdogData = robot_data;  // 现在这是安全的
+        motor_cmd = cyberdogCmd;    // 现在这是安全的
+    }
 }

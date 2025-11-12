@@ -15,15 +15,29 @@
 
 #define M_PI 3.14159265358979323846
 
-int motor_dir[12] = {-1, 1, 1,    // 1,2,3 右前腿
-                     -1,-1,-1,    // 4,5,6 左前腿
-                      1, 1, 1,    // 7,8,9 右后腿    
-                      1,-1,-1};   // A,B,C 左后腿
+// 右手坐标系
+// int motor_dir[12] = {-1, 1, 1,    // 1,2,3 右前腿
+//                      -1,-1,-1,    // 4,5,6 左前腿
+//                       1, 1, 1,    // 7,8,9 右后腿    
+//                       1,-1,-1};   // A,B,C 左后腿
 
-float motor_zeroOffset[12] = {-0.78, -1.57, -0.8,   // 1,2,3 右前腿
-                               0.78, -1.57, -0.8,   // 4,5,6 左前腿
-                              -0.78, -1.57, -0.8,   // 7,8,9 右后腿
-                               0.78, -1.57, -0.8 }; // A,B,C 左后腿
+// float motor_zeroOffset[12] = {-0.78, -1.57, -0.8,   // 1,2,3 右前腿
+//                                0.78, -1.57, -0.8,   // 4,5,6 左前腿
+//                               -0.78, -1.57, -0.8,   // 7,8,9 右后腿
+//                                0.78, -1.57, -0.8 }; // A,B,C 左后腿
+
+
+// 左手坐标系
+int motor_dir[12] = {-1,-1,-1,    // 1,2,3 右前腿
+                     -1, 1, 1,    // 4,5,6 左前腿
+                      1,-1,-1,    // 7,8,9 右后腿    
+                      1, 1, 1};   // A,B,C 左后腿
+
+// 左手坐标系
+float motor_zeroOffset[12] = {-0.78,  1.57,  0.8,   // 1,2,3 右前腿
+                               0.78,  1.57,  0.8,   // 4,5,6 左前腿
+                              -0.78,  1.57,  0.8,   // 7,8,9 右后腿
+                               0.78,  1.57,  0.8 }; // A,B,C 左后腿
 
 
 // 辅助函数：从四元数计算RPY (roll, pitch, yaw)
@@ -102,7 +116,7 @@ CustomInterface::CustomInterface(const double &loop_rate)
     // 所有电机使能
     can_frame enableCANFrame;
     enableCANFrame.can_dlc = 8;
-    uint8_t enableData[8] = {0x80,0xFF,0xFF,0xFF, 0xFF,0xFF,0xFF,0xFD};
+    uint8_t enableData[8] = {0x80,0xFF,0xFF,0xFF, 0xFF,0xFF,0xFF,0xFC};
     memcpy(enableCANFrame.data, enableData, sizeof(enableData));
     for (int i = 0; i < 12; i++)
     {

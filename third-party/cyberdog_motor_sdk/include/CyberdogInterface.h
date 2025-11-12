@@ -2,7 +2,7 @@
 #define CHEETAH_SOFTWARE_CYBERDOGINTERFACE_H
 
 #include <CustomInterface.h>
-
+#include <mutex>  // 添加mutex头文件
 
 #define CYBERDOG
 #define USE_SIM
@@ -24,6 +24,7 @@ public:
     
     ~CyberdogInterface()
     {};
+    
     
     CyberdogData cyberdogData;
     CyberdogCmd cyberdogCmd;

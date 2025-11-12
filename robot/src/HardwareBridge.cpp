@@ -115,111 +115,115 @@ void HardwareBridge::handleGamepadLCM(const lcm::ReceiveBuffer* rbuf,
  */
 void HardwareBridge::handleControlParameter(
     const lcm::ReceiveBuffer* rbuf, const std::string& chan,
-    const control_parameter_request_lcmt* msg) {
-  (void)rbuf;
-  (void)chan;
-  if (msg->requestNumber <= _parameter_response_lcmt.requestNumber) {
-    // nothing to do!
-    printf(
-        "[HardwareBridge] Warning: the interface has run a ControlParameter "
-        "iteration, but there is no new request!\n");
-    // return;
-  }
+    const control_parameter_request_lcmt* msg) 
+{
+	(void)rbuf;
+	(void)chan;
+	if (msg->requestNumber <= _parameter_response_lcmt.requestNumber) 
+	{
+		// nothing to do!
+		printf(
+			"[HardwareBridge] Warning: the interface has run a ControlParameter "
+			"iteration, but there is no new request!\n");
+		// return;
+	}
 
-  // sanity check
-  s64 nRequests = msg->requestNumber - _parameter_response_lcmt.requestNumber;
-  if (nRequests != 1) {
-    printf("[ERROR] Hardware bridge: we've missed %ld requests\n",
-           nRequests - 1);
-  }
+	// sanity check
+	s64 nRequests = msg->requestNumber - _parameter_response_lcmt.requestNumber;
+	if (nRequests != 1) 
+	{
+		printf("[ERROR] Hardware bridge: we've missed %ld requests\n",
+			nRequests - 1);
+	}
 
-  switch (msg->requestKind) {
-    case (s8)ControlParameterRequestKind::SET_USER_PARAM_BY_NAME: {
-      if(!_userControlParameters) {
-        printf("[Warning] Got user param %s, but not using user parameters!\n",
-               (char*)msg->name);
-      } else {
-        std::string name((char*)msg->name);
-        ControlParameter& param = _userControlParameters->collection.lookup(name);
+	switch (msg->requestKind) 
+	{
+		case (s8)ControlParameterRequestKind::SET_USER_PARAM_BY_NAME: {
+		if(!_userControlParameters) {
+			printf("[Warning] Got user param %s, but not using user parameters!\n",
+				(char*)msg->name);
+		} else {
+			std::string name((char*)msg->name);
+			ControlParameter& param = _userControlParameters->collection.lookup(name);
 
-        // type check
-        if ((s8)param._kind != msg->parameterKind) {
-          throw std::runtime_error(
-              "type mismatch for parameter " + name + ", robot thinks it is " +
-              controlParameterValueKindToString(param._kind) +
-              " but received a command to set it to " +
-              controlParameterValueKindToString(
-                  (ControlParameterValueKind)msg->parameterKind));
-        }
+			// type check
+			if ((s8)param._kind != msg->parameterKind) {
+			throw std::runtime_error(
+				"type mismatch for parameter " + name + ", robot thinks it is " +
+				controlParameterValueKindToString(param._kind) +
+				" but received a command to set it to " +
+				controlParameterValueKindToString(
+					(ControlParameterValueKind)msg->parameterKind));
+			}
 
-        // do the actual set
-        ControlParameterValue v;
-        memcpy(&v, msg->value, sizeof(v));
-        param.set(v, (ControlParameterValueKind)msg->parameterKind);
+			// do the actual set
+			ControlParameterValue v;
+			memcpy(&v, msg->value, sizeof(v));
+			param.set(v, (ControlParameterValueKind)msg->parameterKind);
 
-        // respond:
-        _parameter_response_lcmt.requestNumber =
-            msg->requestNumber;  // acknowledge that the set has happened
-        _parameter_response_lcmt.parameterKind =
-            msg->parameterKind;  // just for debugging print statements
-        memcpy(_parameter_response_lcmt.value, msg->value, 64);
-        //_parameter_response_lcmt.value = _parameter_request_lcmt.value; // just
-        //for debugging print statements
-        strcpy((char*)_parameter_response_lcmt.name,
-               name.c_str());  // just for debugging print statements
-        _parameter_response_lcmt.requestKind = msg->requestKind;
+			// respond:
+			_parameter_response_lcmt.requestNumber =
+				msg->requestNumber;  // acknowledge that the set has happened
+			_parameter_response_lcmt.parameterKind =
+				msg->parameterKind;  // just for debugging print statements
+			memcpy(_parameter_response_lcmt.value, msg->value, 64);
+			//_parameter_response_lcmt.value = _parameter_request_lcmt.value; // just
+			//for debugging print statements
+			strcpy((char*)_parameter_response_lcmt.name,
+				name.c_str());  // just for debugging print statements
+			_parameter_response_lcmt.requestKind = msg->requestKind;
 
-        printf("[User Control Parameter] set %s to %s\n", name.c_str(),
-               controlParameterValueToString(
-                   v, (ControlParameterValueKind)msg->parameterKind)
-                   .c_str());
-      }
-    } break;
+			printf("[User Control Parameter] set %s to %s\n", name.c_str(),
+				controlParameterValueToString(
+					v, (ControlParameterValueKind)msg->parameterKind)
+					.c_str());
+		}
+		} break;
 
-    case (s8)ControlParameterRequestKind::SET_ROBOT_PARAM_BY_NAME: {
-      std::string name((char*)msg->name);
-      ControlParameter& param = _robotParams.collection.lookup(name);
+		case (s8)ControlParameterRequestKind::SET_ROBOT_PARAM_BY_NAME: {
+		std::string name((char*)msg->name);
+		ControlParameter& param = _robotParams.collection.lookup(name);
 
-      // type check
-      if ((s8)param._kind != msg->parameterKind) {
-        throw std::runtime_error(
-            "type mismatch for parameter " + name + ", robot thinks it is " +
-            controlParameterValueKindToString(param._kind) +
-            " but received a command to set it to " +
-            controlParameterValueKindToString(
-                (ControlParameterValueKind)msg->parameterKind));
-      }
+		// type check
+		if ((s8)param._kind != msg->parameterKind) {
+			throw std::runtime_error(
+				"type mismatch for parameter " + name + ", robot thinks it is " +
+				controlParameterValueKindToString(param._kind) +
+				" but received a command to set it to " +
+				controlParameterValueKindToString(
+					(ControlParameterValueKind)msg->parameterKind));
+		}
 
-      // do the actual set
-      ControlParameterValue v;
-      memcpy(&v, msg->value, sizeof(v));
-      param.set(v, (ControlParameterValueKind)msg->parameterKind);
+		// do the actual set
+		ControlParameterValue v;
+		memcpy(&v, msg->value, sizeof(v));
+		param.set(v, (ControlParameterValueKind)msg->parameterKind);
 
-      // respond:
-      _parameter_response_lcmt.requestNumber =
-          msg->requestNumber;  // acknowledge that the set has happened
-      _parameter_response_lcmt.parameterKind =
-          msg->parameterKind;  // just for debugging print statements
-      memcpy(_parameter_response_lcmt.value, msg->value, 64);
-      //_parameter_response_lcmt.value = _parameter_request_lcmt.value; // just
-      //for debugging print statements
-      strcpy((char*)_parameter_response_lcmt.name,
-             name.c_str());  // just for debugging print statements
-      _parameter_response_lcmt.requestKind = msg->requestKind;
+		// respond:
+		_parameter_response_lcmt.requestNumber =
+			msg->requestNumber;  // acknowledge that the set has happened
+		_parameter_response_lcmt.parameterKind =
+			msg->parameterKind;  // just for debugging print statements
+		memcpy(_parameter_response_lcmt.value, msg->value, 64);
+		//_parameter_response_lcmt.value = _parameter_request_lcmt.value; // just
+		//for debugging print statements
+		strcpy((char*)_parameter_response_lcmt.name,
+				name.c_str());  // just for debugging print statements
+		_parameter_response_lcmt.requestKind = msg->requestKind;
 
-      printf("[Robot Control Parameter] set %s to %s\n", name.c_str(),
-             controlParameterValueToString(
-                 v, (ControlParameterValueKind)msg->parameterKind)
-                 .c_str());
+		printf("[Robot Control Parameter] set %s to %s\n", name.c_str(),
+				controlParameterValueToString(
+					v, (ControlParameterValueKind)msg->parameterKind)
+					.c_str());
 
-    } break;
+		} break;
 
-    default: {
-      throw std::runtime_error("parameter type unsupported");
-    }
-    break;
-  }
-  _interfaceLCM.publish("interface_response", &_parameter_response_lcmt);
+		default: {
+		throw std::runtime_error("parameter type unsupported");
+		}
+		break;
+	}
+	_interfaceLCM.publish("interface_response", &_parameter_response_lcmt);
 }
 
 
@@ -236,13 +240,15 @@ void MiniCheetahHardwareBridge::run()
 	initCommon();
 
 #ifdef CYBERDOG
-	_cyberdogInterface = new CyberdogInterface(500);
+	_cyberdogInterface = std::make_shared<CyberdogInterface>(500);
+	std::cout << "使用Cyberdog接口 (500Hz)" << std::endl;
 #else
 	initHardware();
 #endif
 	// 改动正常
 
-	if(_load_parameters_from_file) {
+	if(_load_parameters_from_file) 
+	{
 		printf("[Hardware Bridge] Loading parameters from file...\n");
 
 		try {
@@ -276,7 +282,9 @@ void MiniCheetahHardwareBridge::run()
 		} else {
 		printf("Did not load user parameters because there aren't any\n");
 		}
-	} else {
+	} 
+	else 
+	{
 		printf("[Hardware Bridge] Loading parameters over LCM...\n");
 		while (!_robotParams.isFullyInitialized()) {
 		printf("[Hardware Bridge] Waiting for robot parameters...\n");
@@ -291,8 +299,6 @@ void MiniCheetahHardwareBridge::run()
 		}
 	}
 
-
-
 	printf("[Hardware Bridge] Got all parameters, starting up!\n");
 
 	_robotRunner = new RobotRunner(_controller, &taskManager, _robotParams.controller_dt, "robot-control");
@@ -301,10 +307,13 @@ void MiniCheetahHardwareBridge::run()
 	
 #ifdef CYBERDOG
     // 确保 _cyberdogInterface 已被正确初始化
-    if (_cyberdogInterface != nullptr) {
+    if (_cyberdogInterface != nullptr) 
+	{
         _robotRunner->cyberdogCmd = &_cyberdogInterface->cyberdogCmd;
         _robotRunner->cyberdogData = &_cyberdogInterface->cyberdogData;
-    } else {
+    } 
+	else 
+	{
         // 处理初始化失败的情况
         std::cerr << "错误: _cyberdogInterface 未初始化!" << std::endl;
         // 可以选择回退到其他模式或安全处理
@@ -361,14 +370,14 @@ void MiniCheetahHardwareBridge::run()
     microstrainLogger.start();
 #endif
 
-#ifdef USE_RC
-    // 启动遥控器指令接收任务
-    _port = init_sbus(false);  // Not Simulation
-    PeriodicMemberFunction<HardwareBridge> sbusTask(
-            &taskManager, .005, "rc_controller",
-            &HardwareBridge::run_sbus, this);
-    sbusTask.start();
-#endif
+// #ifdef USE_RC
+//     // 启动遥控器指令接收任务
+//     _port = init_sbus(false);  // Not Simulation
+//     PeriodicMemberFunction<HardwareBridge> sbusTask(
+//             &taskManager, .005, "rc_controller",
+//             &HardwareBridge::run_sbus, this);
+//     sbusTask.start();
+// #endif
 
 #ifdef USE_KEYBOARD
     _keyboradThread = std::thread(&MiniCheetahHardwareBridge::run_keyboard, this);

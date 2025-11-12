@@ -131,8 +131,8 @@ void RobotRunner::run()
 			Mat3<float> kdMat;
 			// Update the jpos feedback gains
 			if (robotType == RobotType::MINI_CHEETAH) {
-			kpMat << 5, 0, 0, 0, 5, 0, 0, 0, 5;
-			kdMat << 0.1, 0, 0, 0, 0.1, 0, 0, 0, 0.1;
+			kpMat << 50, 0, 0, 0, 50, 0, 0, 0, 50;
+			kdMat << 1, 0, 0, 0, 1, 0, 0, 0, 1;
 			} else if (robotType == RobotType::CHEETAH_3) {
 			kpMat << 50, 0, 0, 0, 50, 0, 0, 0, 50;
 			kdMat << 1, 0, 0, 0, 1, 0, 0, 0, 1;
@@ -183,11 +183,9 @@ void RobotRunner::setupStep()
 	if (robotType == RobotType::MINI_CHEETAH) 
 	{
 #ifdef CYBERDOG
-#ifdef USE_SIM
-		_legController->updateData(spiData);
-#else
+
 		_legController->updateData(cyberdogData);
-#endif
+
 #else
 		_legController->updateData(spiData);
 #endif

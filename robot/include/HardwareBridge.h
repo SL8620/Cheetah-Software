@@ -43,24 +43,24 @@ class HardwareBridge
 		_controller = robot_ctrl;
 		_userControlParameters = robot_ctrl->getUserControlParameters();
 	}
-  void prefaultStack();
-  void setupScheduler();
-  void initError(const char* reason, bool printErrno = false);
-  void initCommon();
+	void prefaultStack();
+	void setupScheduler();
+	void initError(const char* reason, bool printErrno = false);
+	void initCommon();
 
-  ~HardwareBridge() { delete _robotRunner; }
-  void handleGamepadLCM(const lcm::ReceiveBuffer* rbuf, const std::string& chan,
-                        const gamepad_lcmt* msg);
+	~HardwareBridge() { delete _robotRunner; }
+	void handleGamepadLCM(const lcm::ReceiveBuffer* rbuf, const std::string& chan,
+							const gamepad_lcmt* msg);
 
-  void handleInterfaceLCM();
-  void handleControlParameter(const lcm::ReceiveBuffer* rbuf,
-                              const std::string& chan,
-                              const control_parameter_request_lcmt* msg);
+	void handleInterfaceLCM();
+	void handleControlParameter(const lcm::ReceiveBuffer* rbuf,
+								const std::string& chan,
+								const control_parameter_request_lcmt* msg);
 
-  void publishVisualizationLCM();
-  void run_sbus();
+	void publishVisualizationLCM();
+	void run_sbus();
 
-  void run_keyboard();
+	void run_keyboard();
 
 protected:
 	PeriodicTaskManager taskManager;
@@ -115,7 +115,7 @@ private:
 	bool _microstrainInit = false;
 	bool _load_parameters_from_file;
 
-	CyberdogInterface* _cyberdogInterface = nullptr;
+	std::shared_ptr<CyberdogInterface> _cyberdogInterface;
 	std::thread _cyberdogThread;
 	std::thread _keyboradThread;
 };
