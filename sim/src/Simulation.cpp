@@ -18,202 +18,204 @@
  */
 Simulation::Simulation(RobotType robot, Graphics3D* window,
                        SimulatorControlParameters& params, ControlParameters& userParams, std::function<void(void)> uiUpdate)
-    : _simParams(params), _userParams(userParams), _tau(12) {
-  _uiUpdate = uiUpdate;
-  // init parameters
-  printf("[Simulation] Load parameters...\n");
-  _simParams
-      .lockMutex();  // we want exclusive access to the simparams at this point
-  if (!_simParams.isFullyInitialized()) {
-    printf(
-        "[ERROR] Simulator parameters are not fully initialized.  You forgot: "
-        "\n%s\n",
-        _simParams.generateUnitializedList().c_str());
-    throw std::runtime_error("simulator not initialized");
-  }
+    : _simParams(params), _userParams(userParams), _tau(12) 
+{
+	_uiUpdate = uiUpdate;
+	// init parameters
+	printf("[Simulation] Load parameters...\n");
+	_simParams
+		.lockMutex();  // we want exclusive access to the simparams at this point
+	if (!_simParams.isFullyInitialized()) {
+		printf(
+			"[ERROR] Simulator parameters are not fully initialized.  You forgot: "
+			"\n%s\n",
+			_simParams.generateUnitializedList().c_str());
+		throw std::runtime_error("simulator not initialized");
+	}
 
-  // init LCM
-  if (_simParams.sim_state_lcm) {
-    printf("[Simulation] Setup LCM...\n");
-    _lcm = new lcm::LCM(getLcmUrl(_simParams.sim_lcm_ttl));
-    if (!_lcm->good()) {
-      printf("[ERROR] Failed to set up LCM\n");
-      throw std::runtime_error("lcm bad");
-    }
-  }
+	// init LCM
+	if (_simParams.sim_state_lcm) {
+		printf("[Simulation] Setup LCM...\n");
+		_lcm = new lcm::LCM(getLcmUrl(_simParams.sim_lcm_ttl));
+		if (!_lcm->good()) {
+		printf("[ERROR] Failed to set up LCM\n");
+		throw std::runtime_error("lcm bad");
+		}
+	}
 
-  // init quadruped info
-  printf("[Simulation] Build quadruped...\n");
-  _robot = robot;
-  _quadruped = _robot == RobotType::MINI_CHEETAH ? buildMiniCheetah<double>()
-                                                 : buildCheetah3<double>();
-  printf("[Simulation] Build actuator model...\n");
-  _actuatorModels = _quadruped.buildActuatorModels();
-  _window = window;
+	// init quadruped info
+	printf("[Simulation] Build quadruped...\n");
+	_robot = robot;
+	_quadruped = _robot == RobotType::MINI_CHEETAH ? buildMiniCheetah<double>()
+													: buildCheetah3<double>();
+	printf("[Simulation] Build actuator model...\n");
+	_actuatorModels = _quadruped.buildActuatorModels();
+	_window = window;
 
-  // init graphics
-  if (_window) {
-    printf("[Simulation] Setup Cheetah graphics...\n");
-    Vec4<float> truthColor, seColor;
-    truthColor << 0.1, 0.1, 0.1, 0.6;
-    seColor << .75,.75,.75, 1.0;
-    _simRobotID = _robot == RobotType::MINI_CHEETAH ? window->setupMiniCheetah(truthColor, false, true)
-                                                    : window->setupCheetah3(truthColor, true, true);
-    _controllerRobotID = _robot == RobotType::MINI_CHEETAH
-                             ? window->setupMiniCheetah(seColor, false, false)
-                             : window->setupCheetah3(seColor, false, false);
-  }
+	// init graphics
+	if (_window) 
+	{
+		printf("[Simulation] Setup Cheetah graphics...\n");
+		Vec4<float> truthColor, seColor;
+		truthColor << 0.1, 0.1, 0.1, 0.6;
+		seColor << .75,.75,.75, 1.0;
+		_simRobotID = _robot == RobotType::MINI_CHEETAH ? window->setupMiniCheetah(truthColor, false, true)
+														: window->setupCheetah3(truthColor, true, true);
+		_controllerRobotID = _robot == RobotType::MINI_CHEETAH
+								? window->setupMiniCheetah(seColor, false, false)
+								: window->setupCheetah3(seColor, false, false);
+	}
 
-  // init rigid body dynamics
-  printf("[Simulation] Build rigid body model...\n");
-  _model = _quadruped.buildModel();
-  _robotDataModel = _quadruped.buildModel();
-  _simulator = new DynamicsSimulator<double>(_model, (bool)_simParams.use_spring_damper);
-  _robotDataSimulator = new DynamicsSimulator<double>(_robotDataModel, false);
+	// init rigid body dynamics
+	printf("[Simulation] Build rigid body model...\n");
+	_model = _quadruped.buildModel();
+	_robotDataModel = _quadruped.buildModel();
+	_simulator = new DynamicsSimulator<double>(_model, (bool)_simParams.use_spring_damper);
+	_robotDataSimulator = new DynamicsSimulator<double>(_robotDataModel, false);
 
-  DVec<double> zero12(12);
-  for (u32 i = 0; i < 12; i++) {
-    zero12[i] = 0.;
-  }
+	DVec<double> zero12(12);
+	for (u32 i = 0; i < 12; i++) {
+		zero12[i] = 0.;
+	}
 
-  // set some sane defaults:
-  _tau = zero12;
-  _robotControllerState.q = zero12;
-  _robotControllerState.qd = zero12;
-  FBModelState<double> x0;
-  x0.bodyOrientation = rotationMatrixToQuaternion(
-      ori::coordinateRotation(CoordinateAxis::Z, 0.));
-  // Mini Cheetah
-  x0.bodyPosition.setZero();
-  x0.bodyVelocity.setZero();
-  x0.q = zero12;
-  x0.qd = zero12;
+	// set some sane defaults:
+	_tau = zero12;
+	_robotControllerState.q = zero12;
+	_robotControllerState.qd = zero12;
+	FBModelState<double> x0;
+	x0.bodyOrientation = rotationMatrixToQuaternion(
+		ori::coordinateRotation(CoordinateAxis::Z, 0.));
+	// Mini Cheetah
+	x0.bodyPosition.setZero();
+	x0.bodyVelocity.setZero();
+	x0.q = zero12;
+	x0.qd = zero12;
 
-  // Mini Cheetah Initial Posture
-  // x0.bodyPosition[2] = -0.49;
-  // Cheetah 3
-  // x0.bodyPosition[2] = -0.34;
-  // x0.q[0] = -0.807;
-  // x0.q[1] = -1.2;
-  // x0.q[2] = 2.4;
+	// Mini Cheetah Initial Posture
+	// x0.bodyPosition[2] = -0.49;
+	// Cheetah 3
+	// x0.bodyPosition[2] = -0.34;
+	// x0.q[0] = -0.807;
+	// x0.q[1] = -1.2;
+	// x0.q[2] = 2.4;
 
-  // x0.q[3] = 0.807;
-  // x0.q[4] = -1.2;
-  // x0.q[5] = 2.4;
+	// x0.q[3] = 0.807;
+	// x0.q[4] = -1.2;
+	// x0.q[5] = 2.4;
 
-  // x0.q[6] = -0.807;
-  // x0.q[7] = -1.2;
-  // x0.q[8] = 2.4;
+	// x0.q[6] = -0.807;
+	// x0.q[7] = -1.2;
+	// x0.q[8] = 2.4;
 
-  // x0.q[9] = 0.807;
-  // x0.q[10] = -1.2;
-  // x0.q[11] = 2.4;
+	// x0.q[9] = 0.807;
+	// x0.q[10] = -1.2;
+	// x0.q[11] = 2.4;
 
-  // Initial (Mini Cheetah stand)
-  // x0.bodyPosition[2] = -0.185;
-  // Cheetah 3
-  // x0.bodyPosition[2] = -0.075;
+	// Initial (Mini Cheetah stand)
+	// x0.bodyPosition[2] = -0.185;
+	// Cheetah 3
+	// x0.bodyPosition[2] = -0.075;
 
-  // x0.q[0] = -0.03;
-  // x0.q[1] = -0.79;
-  // x0.q[2] = 1.715;
+	// x0.q[0] = -0.03;
+	// x0.q[1] = -0.79;
+	// x0.q[2] = 1.715;
 
-  // x0.q[3] = 0.03;
-  // x0.q[4] = -0.79;
-  // x0.q[5] = 1.715;
+	// x0.q[3] = 0.03;
+	// x0.q[4] = -0.79;
+	// x0.q[5] = 1.715;
 
-  // x0.q[6] = -0.03;
-  // x0.q[7] = -0.72;
-  // x0.q[8] = 1.715;
+	// x0.q[6] = -0.03;
+	// x0.q[7] = -0.72;
+	// x0.q[8] = 1.715;
 
-  // x0.q[9] = 0.03;
-  // x0.q[10] = -0.72;
-  // x0.q[11] = 1.715;
+	// x0.q[9] = 0.03;
+	// x0.q[10] = -0.72;
+	// x0.q[11] = 1.715;
 
-  // Cheetah lies on the ground
-  //x0.bodyPosition[2] = -0.45;
-
-
-  x0.bodyPosition[2] = 0.05;
-  x0.q[0] = -0.7;
-  x0.q[1] = -1.;
-  x0.q[2] = 2.715;
-
-  x0.q[3] = 0.7;
-  x0.q[4] = -1.;
-  x0.q[5] = 2.715;
-
-  x0.q[6] = -0.7;
-  x0.q[7] = -1.0;
-  x0.q[8] = 2.715;
-
-  x0.q[9] = 0.7;
-  x0.q[10] = -1.0;
-  x0.q[11] = 2.715;
+	// Cheetah lies on the ground
+	//x0.bodyPosition[2] = -0.45;
 
 
-  setRobotState(x0);
-  _robotDataSimulator->setState(x0);
+	x0.bodyPosition[2] = 0.05;
+	x0.q[0] = -0.7;
+	x0.q[1] = -1.;
+	x0.q[2] = 2.715;
 
-  printf("[Simulation] Setup low-level control...\n");
-  // init spine:
-  //初始化spine,仿真中指定spineBoards数据映射到spiData
-  if (_robot == RobotType::MINI_CHEETAH) {
-    for (int leg = 0; leg < 4; leg++) {
-      _spineBoards[leg].init(Quadruped<float>::getSideSign(leg), leg);
-      _spineBoards[leg].data = &_spiData;
-      _spineBoards[leg].cmd = &_spiCommand;
-      _spineBoards[leg].resetData();
-      _spineBoards[leg].resetCommand();
-    }
-  } else if (_robot == RobotType::CHEETAH_3) {
-    // init ti board
-    for (int leg = 0; leg < 4; leg++) {
-      _tiBoards[leg].init(Quadruped<float>::getSideSign(leg));
-      _tiBoards[leg].set_link_lengths(_quadruped._abadLinkLength,
-                                      _quadruped._hipLinkLength,
-                                      _quadruped._kneeLinkLength);
-      _tiBoards[leg].reset_ti_board_command();
-      _tiBoards[leg].reset_ti_board_data();
-      _tiBoards[leg].run_ti_board_iteration();
-    }
-  } else {
-    assert(false);
-  }
+	x0.q[3] = 0.7;
+	x0.q[4] = -1.;
+	x0.q[5] = 2.715;
 
-  // init shared memory
-  printf("[Simulation] Setup shared memory...\n");
-  _sharedMemory.createNew(DEVELOPMENT_SIMULATOR_SHARED_MEMORY_NAME, true);  //创建一个名称为"development-simulator"的共享内存
-  _sharedMemory().init();
+	x0.q[6] = -0.7;
+	x0.q[7] = -1.0;
+	x0.q[8] = 2.715;
 
-  // shared memory fields:
-  _sharedMemory().simToRobot.robotType = _robot;
-  _window->_drawList._visualizationData =
-      &_sharedMemory().robotToSim.visualizationData;
+	x0.q[9] = 0.7;
+	x0.q[10] = -1.0;
+	x0.q[11] = 2.715;
 
-  // load robot control parameters
-  printf("[Simulation] Load control parameters...\n");
-  if (_robot == RobotType::MINI_CHEETAH) {
-    _robotParams.initializeFromYamlFile(getConfigDirectoryPath() +
-                                        MINI_CHEETAH_DEFAULT_PARAMETERS);
-  } else if (_robot == RobotType::CHEETAH_3) {
-    _robotParams.initializeFromYamlFile(getConfigDirectoryPath() +
-                                        CHEETAH_3_DEFAULT_PARAMETERS);
-  } else {
-    assert(false);
-  }
 
-  if (!_robotParams.isFullyInitialized()) {
-    printf("Not all robot control parameters were initialized. Missing:\n%s\n",
-           _robotParams.generateUnitializedList().c_str());
-    throw std::runtime_error("not all parameters initialized from ini file");
-  }
-  // init IMU simulator
-  printf("[Simulation] Setup IMU simulator...\n");
-  _imuSimulator = new ImuSimulator<double>(_simParams);
+	setRobotState(x0);
+	_robotDataSimulator->setState(x0);
 
-  _simParams.unlockMutex();
-  printf("[Simulation] Ready!\n");
+	printf("[Simulation] Setup low-level control...\n");
+	// init spine:
+	//初始化spine,仿真中指定spineBoards数据映射到spiData
+	if (_robot == RobotType::MINI_CHEETAH) {
+		for (int leg = 0; leg < 4; leg++) {
+		_spineBoards[leg].init(Quadruped<float>::getSideSign(leg), leg);
+		_spineBoards[leg].data = &_spiData;
+		_spineBoards[leg].cmd = &_spiCommand;
+		_spineBoards[leg].resetData();
+		_spineBoards[leg].resetCommand();
+		}
+	} else if (_robot == RobotType::CHEETAH_3) {
+		// init ti board
+		for (int leg = 0; leg < 4; leg++) {
+		_tiBoards[leg].init(Quadruped<float>::getSideSign(leg));
+		_tiBoards[leg].set_link_lengths(_quadruped._abadLinkLength,
+										_quadruped._hipLinkLength,
+										_quadruped._kneeLinkLength);
+		_tiBoards[leg].reset_ti_board_command();
+		_tiBoards[leg].reset_ti_board_data();
+		_tiBoards[leg].run_ti_board_iteration();
+		}
+	} else {
+		assert(false);
+	}
+
+	// init shared memory
+	printf("[Simulation] Setup shared memory...\n");
+	_sharedMemory.createNew(DEVELOPMENT_SIMULATOR_SHARED_MEMORY_NAME, true);  //创建一个名称为"development-simulator"的共享内存
+	_sharedMemory().init();
+
+	// shared memory fields:
+	_sharedMemory().simToRobot.robotType = _robot;
+	_window->_drawList._visualizationData =
+		&_sharedMemory().robotToSim.visualizationData;
+
+	// load robot control parameters
+	printf("[Simulation] Load control parameters...\n");
+	if (_robot == RobotType::MINI_CHEETAH) {
+		_robotParams.initializeFromYamlFile(getConfigDirectoryPath() +
+											MINI_CHEETAH_DEFAULT_PARAMETERS);
+	} else if (_robot == RobotType::CHEETAH_3) {
+		_robotParams.initializeFromYamlFile(getConfigDirectoryPath() +
+											CHEETAH_3_DEFAULT_PARAMETERS);
+	} else {
+		assert(false);
+	}
+
+	if (!_robotParams.isFullyInitialized()) {
+		printf("Not all robot control parameters were initialized. Missing:\n%s\n",
+			_robotParams.generateUnitializedList().c_str());
+		throw std::runtime_error("not all parameters initialized from ini file");
+	}
+	// init IMU simulator
+	printf("[Simulation] Setup IMU simulator...\n");
+	_imuSimulator = new ImuSimulator<double>(_simParams);
+
+	_simParams.unlockMutex();
+	printf("[Simulation] Ready!\n");
 }
 
 void Simulation::sendControlParameter(const std::string& name,

@@ -14,10 +14,10 @@ void DrawList::loadFiles()
 	{
 		"c3_body.obj",         "mini_abad.obj",
 		"c3_upper_link.obj",   "c3_lower_link.obj",
-		"trunk.obj",       "mini_abad.obj",
-		"mini_upper_link.obj", "mini_lower_link.obj",
+		"trunk.obj",           "FR_hip.obj",
+		"L_thigh.obj",         "calfWithFoot.obj",
 		"sphere.obj",          "cube.obj",
-		"mini_upper_link_mirror.obj"
+		"R_thigh.obj"
 	};//lqh
 
 	for (const auto& name : names) 
@@ -139,96 +139,88 @@ size_t DrawList::addCheetah3(Vec4<float> color, bool useOld, bool canHide) {
  */
 size_t DrawList::addMiniCheetah(Vec4<float> color, bool useOld, bool canHide) {
   
-  size_t i0 = _miniCheetahLoadIndex;  // todo don't hard code this
-  size_t j0 = _nTotal;
+	size_t i0 = _miniCheetahLoadIndex;  // todo don't hard code this
+	size_t j0 = _nTotal;
 
-  // set model offsets:
-  QMatrix4x4 bodyOffset, upper, lower, eye;
-  QMatrix4x4 abadOffsets[4];
-  eye.setToIdentity();
+	// set model offsets:
+	QMatrix4x4 bodyOffset, upper, lower, eye;
+	QMatrix4x4 abadOffsets[4];
+	eye.setToIdentity();
 
-  // body
-  bodyOffset.setToIdentity();
+	// body
+	bodyOffset.setToIdentity();
 
-  // abads (todo, check these)
+	// abads (todo, check these)
 
-  abadOffsets[0].setToIdentity();  // n
-  abadOffsets[0].rotate(-90, 0, 0, 1); //
-  abadOffsets[0].translate(0, -.0565f, 0); //
-  abadOffsets[0].rotate(180, 0, 1, 0);    //
+	abadOffsets[0].setToIdentity();  // n
 
-  abadOffsets[1].setToIdentity();  // p
-  abadOffsets[1].rotate(-90, 0, 0, 1);
-  abadOffsets[1].translate(0, -.0565f, 0);
-  abadOffsets[1].rotate(0, 0, 1, 0);
+	abadOffsets[1].setToIdentity();  // p
+	abadOffsets[1].rotate(180, 1, 0, 0);  // p
 
-  abadOffsets[2].setToIdentity();  // n
-  abadOffsets[2].rotate(90, 0, 0, 1);
-  abadOffsets[2].translate(0, -.0565f, 0);
-  abadOffsets[2].rotate(0, 0, 1, 0);
+	abadOffsets[2].setToIdentity();  // n
+	abadOffsets[3].rotate(180, 0, 0, 1);  // p
+	abadOffsets[3].rotate(180, 1, 0, 1);  // p
 
-  abadOffsets[3].setToIdentity();  // p
-  abadOffsets[3].rotate(90, 0, 0, 1);
-  abadOffsets[3].translate(0, -.0565f, 0);
-  abadOffsets[3].rotate(180, 0, 1, 0);
+	abadOffsets[3].setToIdentity();  // p
+	abadOffsets[3].rotate(180, 0, 0, 1);  // p
+	// upper
+	upper.setToIdentity();
+	upper.rotate(180, 0, 0, 1);
 
-  // upper
-  upper.setToIdentity();
-  upper.rotate(-90, 0, 1, 0);
+	// lower
+	lower.setToIdentity();
+	lower.rotate(180, 0, 0, 1);
 
-  // lower
-  lower.setToIdentity();
-  lower.rotate(180, 0, 1, 0);
+	(void) color;//lqh
+	SolidColor bodyColor, abadColor, link1Color, link2Color;
+	bodyColor.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : Vec4<float>(.4, .5, .5, .8);//color;  //lqh 2021.1.6 .7, .2, .4, .5 red
+	bodyColor.useSolidColor = true;
 
-  (void) color;//lqh
-  SolidColor bodyColor, abadColor, link1Color, link2Color;
-  bodyColor.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : Vec4<float>(.4, .5, .5, .8);//color;  //lqh 2021.1.6 .7, .2, .4, .5 red
-  bodyColor.useSolidColor = true;
+	abadColor.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : Vec4<float>(.5, .5, .5, .9);//color; 0.1,0.1,0.1 dark
+	abadColor.useSolidColor = true;
 
-  abadColor.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : Vec4<float>(.5, .5, .5, .9);//color; 0.1,0.1,0.1 dark
-  abadColor.useSolidColor = true;
+	link1Color.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : Vec4<float>(.5, .5, .5, .9);//color;  .9, .9, .1, .6 yellow
+	link1Color.useSolidColor = true;
 
-  link1Color.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : Vec4<float>(.5, .5, .5, .9);//color;  .9, .9, .1, .6 yellow
-  link1Color.useSolidColor = true;
+	link2Color.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : Vec4<float>(.1, .1, .1, .9);//color;
+	link2Color.useSolidColor = true;
 
-  link2Color.rgba = useOld ? Vec4<float>(.2, .2, .4, .3) : Vec4<float>(.1, .1, .1, .9);//color;
-  link2Color.useSolidColor = true;
+	_canBeHidden.push_back(canHide);
 
-  _canBeHidden.push_back(canHide);
+	// add objects
+	_objectMap.push_back(i0 + 0);
+	_modelOffsets.push_back(bodyOffset);
+	_kinematicXform.push_back(eye);
+	_instanceColor.push_back(bodyColor);
+	_nTotal++;
 
-  // add objects
-  _objectMap.push_back(i0 + 0);
-  _modelOffsets.push_back(bodyOffset);
-  _kinematicXform.push_back(eye);
-  _instanceColor.push_back(bodyColor);
-  _nTotal++;
+	for (int i = 0; i < 4; i++) 
+	{
+		_objectMap.push_back(i0 + 1);
+		_canBeHidden.push_back(canHide);
+		_modelOffsets.push_back(abadOffsets[i]);
+		_kinematicXform.push_back(eye);
+		_instanceColor.push_back(abadColor);
 
-  for (int i = 0; i < 4; i++) {
-    _objectMap.push_back(i0 + 1);
-    _canBeHidden.push_back(canHide);
-    _modelOffsets.push_back(abadOffsets[i]);
-    _kinematicXform.push_back(eye);
-    _instanceColor.push_back(abadColor);
+		_objectMap.push_back((i%2)?(i0 + 2):10);  //lqh,right legs load upper_mirror(10)
+		_canBeHidden.push_back(canHide);
+		_modelOffsets.push_back(upper);
+		_kinematicXform.push_back(eye);
+		_instanceColor.push_back(link1Color);
 
-    _objectMap.push_back((i%2)?(i0 + 2):10);  //lqh,right legs load upper_mirror(10)
-    _canBeHidden.push_back(canHide);
-    _modelOffsets.push_back(upper);
-    _kinematicXform.push_back(eye);
-    _instanceColor.push_back(link1Color);
+		_objectMap.push_back(i0 + 3);
+		_canBeHidden.push_back(canHide);
+		_modelOffsets.push_back(lower);
+		_kinematicXform.push_back(eye);
+		_instanceColor.push_back(link2Color);
+		_nTotal += 3;
+	}
 
-    _objectMap.push_back(i0 + 3);
-    _canBeHidden.push_back(canHide);
-    _modelOffsets.push_back(lower);
-    _kinematicXform.push_back(eye);
-    _instanceColor.push_back(link2Color);
-    _nTotal += 3;
-  }
-
-  // printf("add mini cheetah (%d) id %ld\n", (int)canHide, j0);
-  // for(u32 i = 0; i < _canBeHidden.size(); i++) {
-  //   printf(" [%02d] %d\n", i, _canBeHidden[i]);
-  // }
-  return j0;
+	// printf("add mini cheetah (%d) id %ld\n", (int)canHide, j0);
+	// for(u32 i = 0; i < _canBeHidden.size(); i++) {
+	//   printf(" [%02d] %d\n", i, _canBeHidden[i]);
+	// }
+	return j0;
 }
 
 /*!
